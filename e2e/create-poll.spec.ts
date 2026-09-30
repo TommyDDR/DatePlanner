@@ -7,6 +7,12 @@ import { dayButton, dayFromToday, PASSWORD, resetDatabase, uniqueEmail } from '.
 
 test.beforeAll(resetDatabase);
 
+/** « de septembre », « d’octobre » : le mois d'un jour, comme le nomment les boutons d'une grille. */
+function ofMonth(day: string): string {
+  const name = new Intl.DateTimeFormat('fr-FR', { month: 'long', timeZone: 'UTC' }).format(new Date(`${day}T12:00:00Z`));
+  return /^[aeiouéâ]/.test(name) ? `d’${name}` : `de ${name}`;
+}
+
 /** Numéro de semaine ISO 8601 d'un jour `AAAA-MM-JJ`. */
 function isoWeek(day: string): number {
   // Le jeudi de la semaine décide de l'année ; la semaine 1 contient le premier jeudi.
@@ -48,8 +54,11 @@ test('un visiteur crée un compte, un sondage, et partage son lien', async ({ pa
 
   await page.getByRole('button', { name: 'Tout effacer' }).click();
 
-  // Scénario 5 : une semaine entière s'ajoute d'un clic, puis se retire.
-  const weekButton = page.getByRole('button', { name: `Faire avancer la semaine ${isoWeek(dayFromToday(3))}` });
+  // Scénario 5 : une semaine entière s'ajoute d'un clic, puis se retire. Deux
+  // mois sont affichés : chaque grille fait avancer ses propres jours.
+  const weekButton = page.getByRole('button', {
+    name: `Faire avancer la semaine ${isoWeek(dayFromToday(3))} ${ofMonth(dayFromToday(3))}`,
+  });
   await weekButton.click();
   await expect(page.locator(`input[name="days"][value="${dayFromToday(3)}"]`)).toHaveCount(1);
   await weekButton.click();

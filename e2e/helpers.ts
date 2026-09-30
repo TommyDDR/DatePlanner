@@ -1,6 +1,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
-import type { Page } from '@playwright/test';
+import type { BrowserContext, Page } from '@playwright/test';
+import { createHash, randomBytes } from 'node:crypto';
 
 /**
  * Outils des parcours de bout en bout.
@@ -51,4 +52,17 @@ export async function signUp(page: Page, options: { name?: string; email?: strin
 /** Le bouton d'un jour du calendrier. */
 export function dayButton(page: Page, day: string) {
   return page.locator(`[data-day="${day}"]`);
+}
+
+/** Une session ouverte en base, posée dans le contexte : pas de détour par le formulaire. */
+export async function signInAs(context: BrowserContext, userId: string, baseURL: string): Promise<void> {
+  const token = randomBytes(32).toString('base64url');
+  await db.session.create({
+    data: {
+      userId,
+      tokenHash: createHash('sha256').update(token).digest('hex'),
+      expiresAt: new Date(Date.now() + 86_400_000),
+    },
+  });
+  await context.addCookies([{ name: 'dp_session', value: token, url: baseURL }]);
 }

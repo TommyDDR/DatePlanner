@@ -185,6 +185,36 @@ export function weekdayColumn(month: Month, weekday: number): Day[] {
 }
 
 /**
+ * Combien de mois montrer côte à côte pour lire ces jours : un seul s'ils
+ * tiennent dans un mois, deux sinon - au-delà, les flèches font défiler.
+ */
+export function monthsToShow(days: readonly Day[]): 1 | 2 {
+  return new Set(days.map((day) => day.slice(0, 7))).size > 1 ? 2 : 1;
+}
+
+/**
+ * Le premier mois d'une fenêtre de `count` mois qui doit montrer `month`.
+ *
+ * La fenêtre recule d'autant qu'il faut pour ne pas finir au-delà de `last` -
+ * deux mois dont le second serait vide alors que le précédent a des jours à
+ * montrer -, sans remonter avant `first`. `month` reste toujours visible.
+ */
+export function windowStart(
+  month: Month,
+  count: number,
+  bounds: { first?: Month | null; last?: Month | null } = {},
+): Month {
+  let start = month;
+  if (bounds.last && compareMonths(bounds.last, shiftMonth(month, count - 1)) < 0) {
+    const latest = shiftMonth(bounds.last, -(count - 1));
+    const earliest = shiftMonth(month, -(count - 1));
+    start = compareMonths(latest, earliest) > 0 ? latest : earliest;
+  }
+  if (bounds.first && compareMonths(start, bounds.first) < 0) start = bounds.first;
+  return start;
+}
+
+/**
  * Le mois qu'ouvre le calendrier : celui du premier jour choisi, sinon du
  * premier jour mis en évidence, sinon du premier jour permis, sinon
  * d'aujourd'hui. Ouvrir sur un mois vide quand les jours proposés sont le mois

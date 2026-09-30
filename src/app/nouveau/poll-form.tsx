@@ -75,6 +75,7 @@ export function PollForm({ today }: { today: string }) {
         </p>
         <DatePicker
           mode="multiple"
+          months={2}
           label="Jours proposés"
           today={today}
           min={today}

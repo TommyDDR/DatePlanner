@@ -7,6 +7,8 @@ import {
   isMonthSelectable,
   isYearSelectable,
   monthRange,
+  monthsToShow,
+  windowStart,
   rangeClick,
   rangeShown,
   yearPage,
@@ -246,5 +248,36 @@ describe('Vues des mois et des années', () => {
     expect(isYearSelectable(2026, null, '2026-09-23')).toBe(true);
     expect(isYearSelectable(2027, null, '2026-09-23')).toBe(false);
     expect(isYearSelectable(2025, '2026-01-01', null)).toBe(false);
+  });
+});
+
+describe('deux mois côte à côte', () => {
+  it('un mois quand les jours y tiennent, deux sinon', () => {
+    expect(monthsToShow(['2026-10-03', '2026-10-28'])).toBe(1);
+    expect(monthsToShow(['2026-10-30', '2026-11-02'])).toBe(2);
+    expect(monthsToShow(['2026-10-03', '2027-02-01'])).toBe(2);
+    expect(monthsToShow([])).toBe(1);
+  });
+
+  it('une fenêtre de deux mois commence au mois demandé', () => {
+    expect(windowStart({ year: 2026, month: 9 }, 2)).toEqual({ year: 2026, month: 9 });
+    expect(windowStart({ year: 2026, month: 12 }, 2, { last: { year: 2027, month: 3 } })).toEqual({ year: 2026, month: 12 });
+  });
+
+  it('recule plutôt que de finir sur un mois vide, sans cacher le mois demandé', () => {
+    // Jours en octobre et novembre, ouverture sur novembre : octobre et novembre.
+    expect(windowStart({ year: 2026, month: 11 }, 2, { last: { year: 2026, month: 11 } })).toEqual({ year: 2026, month: 10 });
+    // Le dernier mois est loin derrière : on ne recule que d'un mois, novembre reste visible.
+    expect(windowStart({ year: 2026, month: 11 }, 2, { last: { year: 2026, month: 3 } })).toEqual({ year: 2026, month: 10 });
+  });
+
+  it('ne remonte jamais avant la première borne', () => {
+    expect(
+      windowStart({ year: 2026, month: 10 }, 2, { first: { year: 2026, month: 10 }, last: { year: 2026, month: 10 } }),
+    ).toEqual({ year: 2026, month: 10 });
+  });
+
+  it('un seul mois ne bouge pas', () => {
+    expect(windowStart({ year: 2026, month: 11 }, 1, { last: { year: 2026, month: 11 } })).toEqual({ year: 2026, month: 11 });
   });
 });

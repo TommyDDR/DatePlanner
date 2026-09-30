@@ -288,6 +288,7 @@ function DaysSection({ publicId, days, votesByDay, retainedDay, today }: Props) 
             <p className="text-sm font-medium">Ajouter des jours</p>
             <DatePicker
               mode="multiple"
+              months={2}
               label="Jours à ajouter"
               today={today}
               min={today}
