@@ -5,7 +5,7 @@ import { useActionState, useMemo, useState } from 'react';
 import { DatePicker, type DayBadge, type MarkState } from '@/components/date-picker';
 import { FieldError, FormAlert, Honeypot, SubmitButton } from '@/components/form-parts';
 import { POLL_LIMITS } from '@/config/limits';
-import { addDays, type Marks } from '@/lib/date-picker';
+import { addDays, monthsToShow, type Marks } from '@/lib/date-picker';
 import { fieldError, keptText } from '@/lib/form-state';
 import { submitResponseAction, withdrawResponseAction } from '../actions';
 
@@ -86,6 +86,7 @@ function ReadOnly({ pollDays, today, badges, markedMonths, retainedDay, children
       <DatePicker
         mode="multiple"
         readOnly
+        months={monthsToShow(pollDays)}
         label="Disponibilités"
         today={today}
         highlighted={pollDays}
@@ -175,6 +176,7 @@ function AnswerForm({ publicId, pollDays, today, user, existing, badges, markedM
           </p>
           <DatePicker
             mode="multiple"
+            months={monthsToShow(pickable)}
             label="Vos disponibilités"
             today={today}
             min={min}

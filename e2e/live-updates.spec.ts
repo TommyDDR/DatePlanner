@@ -88,13 +88,15 @@ test('sur téléphone, la liste des disponibilités reste lisible sans survol', 
 });
 
 test('un sondage sur plusieurs mois s’ouvre sur le premier jour à venir et signale ses mois', async ({ page }) => {
+  // J-40, J+3 et J+40 tombent toujours dans trois mois distincts : plus que
+  // les deux mois que montre la fenêtre, d'où les mois signalés.
   const first = dayFromToday(3);
   const later = dayFromToday(40);
-  const publicId = await createPoll([dayFromToday(-5), first, later]);
+  const publicId = await createPoll([dayFromToday(-40), first, later]);
   await page.goto(`/s/${publicId}`);
   await expect(dayButton(page, first)).toBeVisible();
   const chips = page.locator('[data-marked-month]');
-  await expect(chips).toHaveCount(new Set([dayFromToday(-5), first, later].map((d) => d.slice(0, 7))).size);
+  await expect(chips).toHaveCount(3);
   await chips.last().click();
   await expect(dayButton(page, later)).toBeVisible();
 });

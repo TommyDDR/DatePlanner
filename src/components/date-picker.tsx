@@ -24,6 +24,7 @@ import {
   rangeShown,
   shiftMonth,
   weekdayColumn,
+  windowStart,
   yearPage,
   yearRange,
   type Day,
@@ -79,6 +80,12 @@ export type DayBadge = { count: number; voters: readonly Voter[] };
  * « Tout le mois » et « Toute l'année » prennent un bloc d'un geste, ramené
  * aux bornes permises.
  *
+ * Deux mois peuvent se montrer côte à côte (`months`), l'un sous l'autre
+ * quand la place manque. Chaque grille ne rend alors que ses propres jours :
+ * un jour n'apparaît qu'une fois, et une colonne ou une semaine n'avance que
+ * ce que sa grille montre. Une grille ne s'élargit jamais au-delà de 21rem -
+ * ses cases restent carrées et serrées -, elle se centre.
+ *
  * Le titre se CLIQUE : « Septembre 2026 » ouvre la vue des douze mois de
  * l'année, et l'année celle de douze années. Choisir redescend d'un cran,
  * jusqu'aux jours ; Échap aussi. Aller chercher un jour de l'an dernier ne se
@@ -130,6 +137,19 @@ function monthName(month: number): string {
 function monthTitle(month: Month): string {
   const title = MONTH_TITLE.format(new Date(Date.UTC(month.year, month.month - 1, 1, 12)));
   return title.charAt(0).toUpperCase() + title.slice(1);
+}
+
+/** « Septembre - octobre 2026 », « Décembre 2026 - janvier 2027 ». */
+function windowTitle(first: Month, last: Month): string {
+  if (compareMonths(first, last) === 0) return monthTitle(first);
+  const start = first.year === last.year ? monthName(first.month) : monthTitle(first);
+  return `${start} - ${monthTitle(last).toLowerCase()}`;
+}
+
+/** « de septembre », « d’octobre » : le mois d'une grille, pour nommer ses groupes. */
+function ofMonth(month: Month): string {
+  const name = monthName(month.month).toLowerCase();
+  return /^[aeiouéâ]/.test(name) ? `d’${name}` : `de ${name}`;
 }
 
 /** Un état du cycle : comment il se dit, se peint, et sous quel nom il part avec le formulaire. */
@@ -205,11 +225,17 @@ export type DatePickerProps = {
   readOnly?: boolean;
   /**
    * Mois (`AAAA-MM`) qui portent des jours à voir : signalés au-dessus de la
-   * grille, et joignables d'un clic, quand il y en a plusieurs.
+   * grille, et joignables d'un clic, quand il y en a plus que de mois affichés.
    */
   markedMonths?: readonly string[];
   /** Le jour sur lequel s'ouvre le calendrier, quand ni un choix ni `highlighted` ne le disent. */
   initialDay?: Day | null;
+  /**
+   * Mois montrés côte à côte : deux pour proposer des jours, ou pour
+   * répondre à un sondage qui déborde d'un mois. À deux, les jours des mois
+   * voisins ne se montrent plus - chaque jour n'apparaît qu'une fois.
+   */
+  months?: 1 | 2;
 };
 
 const EMPTY: Marks = {};
@@ -241,6 +267,7 @@ export function DatePicker({
   readOnly = false,
   markedMonths = [],
   initialDay = null,
+  months = 1,
 }: DatePickerProps) {
   const multiple = mode === 'multiple';
   /** Les en-têtes de colonne et de semaine ne font avancer un groupe que si l'on peut choisir. */
@@ -274,10 +301,23 @@ export function DatePicker({
   const highlightedSet = useMemo(() => new Set(highlighted), [highlighted]);
   const rules: DayRules = useMemo(() => ({ min, max, disabled: disabledSet }), [min, max, disabledSet]);
 
+  // Les bornes de ce qui est à voir : les jours permis, sinon les jours mis en
+  // évidence. Une fenêtre de deux mois ne finit pas au-delà.
+  const sortedHighlighted = useMemo(() => [...highlighted].sort(), [highlighted]);
+  const firstBound = min ? monthOf(min) : sortedHighlighted[0] ? monthOf(sortedHighlighted[0]) : null;
+  const lastBound = max
+    ? monthOf(max)
+    : sortedHighlighted.length > 0
+      ? monthOf(sortedHighlighted[sortedHighlighted.length - 1]!)
+      : null;
   const [month, setMonth] = useState<Month>(() =>
-    initialDay && Object.keys(marks).length === 0
-      ? monthOf(initialDay)
-      : initialMonth({ selected: Object.keys(marks), highlighted, min, today }),
+    windowStart(
+      initialDay && Object.keys(marks).length === 0
+        ? monthOf(initialDay)
+        : initialMonth({ selected: Object.keys(marks), highlighted, min, today }),
+      months,
+      { first: firstBound, last: lastBound },
+    ),
   );
   const [focusDay, setFocusDay] = useState<Day>(
     () =>
@@ -290,7 +330,17 @@ export function DatePicker({
   const gridRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const weeks = useMemo(() => calendarWeeks(month), [month]);
+  const multi = months > 1;
+  /** Les mois affichés, chacun avec ses six semaines. */
+  const panes = useMemo(
+    () =>
+      Array.from({ length: months }, (_, index) => {
+        const shown = shiftMonth(month, index);
+        return { month: shown, weeks: calendarWeeks(shown) };
+      }),
+    [month, months],
+  );
+  const lastMonth = panes[panes.length - 1]!.month;
   const minMonth = min ? monthOf(min) : null;
   const maxMonth = max ? monthOf(max) : null;
   const years = yearPage(month.year);
@@ -300,14 +350,21 @@ export function DatePicker({
       : isYearSelectable((view === 'months' ? month.year : years[0]!) - 1, min, max);
   const canNext =
     view === 'days'
-      ? !maxMonth || compareMonths(month, maxMonth) < 0
+      ? !maxMonth || compareMonths(lastMonth, maxMonth) < 0
       : isYearSelectable((view === 'months' ? month.year : years[11]!) + 1, min, max);
 
-  // Le jour qui porte le focus doit être dans la grille : un changement de
-  // mois par les flèches du titre le ramène au premier du mois.
-  const visibleFocus = weeks.some((week) => week.days.includes(focusDay))
-    ? focusDay
-    : weeks.flatMap((week) => week.days).find((day) => inMonth(day, month))!;
+  // Le jour qui porte le focus doit être dans une grille : un changement de
+  // mois par les flèches du titre le ramène au premier du mois. À deux mois,
+  // les jours voisins ne sont pas rendus et ne peuvent donc pas le porter.
+  const visibleDays = panes.flatMap((pane) =>
+    pane.weeks.flatMap((week) => (multi ? week.days.filter((day) => inMonth(day, pane.month)) : week.days)),
+  );
+  const visibleFocus = visibleDays.includes(focusDay) ? focusDay : visibleDays.find((day) => inMonth(day, month))!;
+
+  /** Vrai si le mois est dans la fenêtre affichée. */
+  function isShown(target: Month): boolean {
+    return compareMonths(target, month) >= 0 && compareMonths(target, lastMonth) <= 0;
+  }
 
   useEffect(() => {
     if (!keyboardMove.current) return;
@@ -449,7 +506,14 @@ export function DatePicker({
     keyboardMove.current = true;
     setFocusDay(target);
     if (isRange && currentRange.start !== null && currentRange.end === null) setHover(target);
-    if (!inMonth(target, month)) setMonth(monthOf(target));
+    if (!multi) {
+      if (!inMonth(target, month)) setMonth(monthOf(target));
+    } else if (!isShown(monthOf(target))) {
+      // La fenêtre glisse du côté où le focus en sort.
+      setMonth(
+        compareMonths(monthOf(target), month) < 0 ? monthOf(target) : shiftMonth(monthOf(target), -(months - 1)),
+      );
+    }
   }
 
   /** Les flèches du titre : un mois, une année ou douze années, selon la vue. */
@@ -463,12 +527,184 @@ export function DatePicker({
   const chosen = daysMarked(marks, 1)[0];
   const anyMatched = highlighted.some((day) => shown[day] === 1);
 
+  /**
+   * La grille d'un mois. Sa largeur est plafonnée (`PANE`) : au-delà, les
+   * cases garderaient leur taille et s'écarteraient les unes des autres ; la
+   * grille reste donc à ses proportions, centrée dans l'espace disponible.
+   */
+  function renderMonth(pane: { month: Month; weeks: ReturnType<typeof calendarWeeks> }) {
+    const paneMonth = pane.month;
+    // À deux mois, une grille ne rend que ses propres jours : un groupe ne
+    // fait avancer que ce qu'elle montre.
+    const own = (days: readonly Day[]) => (multi ? days.filter((day) => inMonth(day, paneMonth)) : [...days]);
+    const scope = multi ? ofMonth(paneMonth) : 'affichés';
+    return (
+      <div key={`${paneMonth.year}-${paneMonth.month}`} className={PANE}>
+        {multi ? (
+          <p className="mb-1 text-center text-xs font-semibold tracking-tight">{monthTitle(paneMonth)}</p>
+        ) : null}
+        <div
+          role="grid"
+          aria-label={`${label}, ${monthTitle(paneMonth)}`}
+          aria-multiselectable={groupable || undefined}
+          aria-readonly={readOnly || undefined}
+          className="grid grid-cols-[1.75rem_repeat(7,minmax(0,1fr))] gap-y-1"
+        >
+          <div role="row" className="contents">
+            <span role="columnheader" className="label-tech grid place-items-center !text-[0.6rem]">
+              <span aria-hidden="true">S</span>
+              <span className="sr-only">Semaine</span>
+            </span>
+            {WEEKDAYS.map((weekday, index) =>
+              groupable ? (
+                <span key={index} role="columnheader" className="grid place-items-center">
+                  <button
+                    type="button"
+                    onClick={() => commit(cycleGroup(marks, own(weekdayColumn(paneMonth, index)), count, rules))}
+                    aria-label={`Faire avancer tous les ${weekday.long} ${scope}`}
+                    title={`Tous les ${weekday.long} ${scope}`}
+                    className="grid size-8 place-items-center rounded-full font-mono text-[0.7rem] uppercase text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-ink-raised)] hover:text-[var(--color-ember)]"
+                  >
+                    {weekday.short}
+                  </button>
+                </span>
+              ) : (
+                <span
+                  key={index}
+                  role="columnheader"
+                  aria-label={weekday.long}
+                  className="grid h-8 place-items-center font-mono text-[0.7rem] uppercase text-[var(--color-text-subtle)]"
+                >
+                  {weekday.short}
+                </span>
+              ),
+            )}
+          </div>
+
+          {pane.weeks.map((week) => {
+            const rowDays = own(week.days);
+            return (
+              <div key={week.days[0]} role="row" className="contents">
+                <span role="rowheader" className="grid place-items-center">
+                  {rowDays.length === 0 ? null : groupable ? (
+                    <button
+                      type="button"
+                      onClick={() => commit(cycleGroup(marks, rowDays, count, rules))}
+                      aria-label={`Faire avancer la semaine ${week.week}${multi ? ` ${scope}` : ''}`}
+                      title={`Toute la semaine ${week.week}${multi ? ` ${scope}` : ''}`}
+                      className="grid h-8 w-7 place-items-center rounded-full font-mono text-[0.6rem] text-[var(--color-text-subtle)] transition-colors hover:bg-[var(--color-ink-raised)] hover:text-[var(--color-ember)]"
+                    >
+                      {week.week}
+                    </button>
+                  ) : (
+                    <span className="font-mono text-[0.6rem] text-[var(--color-text-subtle)]">{week.week}</span>
+                  )}
+                </span>
+                {week.days.map((day, column) =>
+                  multi && !inMonth(day, paneMonth) ? (
+                    // La case d'un jour voisin reste, vide : les deux grilles gardent leurs six rangées.
+                    <span key={day} role="gridcell" className="grid place-items-center p-px">
+                      <span aria-hidden="true" className="aspect-square w-full max-w-11" />
+                    </span>
+                  ) : (
+                    renderDay(day, column, !multi && !inMonth(day, paneMonth))
+                  ),
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  function renderDay(day: Day, column: number, outside: boolean) {
+    const selectable = isSelectable(day, rules);
+    const forbidden = disabledSet.has(day);
+    const rank = shown[day] ?? 0;
+    const state = rank > 0 ? states[rank - 1]! : null;
+    const isHighlighted = highlightedSet.has(day);
+    const matched = isHighlighted && rank === 1 && state?.tone === 'fill';
+    const previewed = Boolean(inDrag?.has(day) && selectable);
+    const between = Boolean(painted && day > painted.start && day < painted.end);
+    const retained = day === retainedDay;
+    const badge = badges?.[day];
+    const tooltipId = badge ? `${tooltipBase}-${day}` : undefined;
+    const labelParts = [
+      formatPickerDay(day),
+      painted ? rangeLabel(day, painted) : null,
+      state && multiple && !matched ? state.label : null,
+      matched && matchLabel ? matchLabel : isHighlighted && highlightLabel ? highlightLabel : null,
+      forbidden && disabledLabel ? disabledLabel : null,
+      retained ? 'date retenue' : null,
+      badge ? voteCountLabel(badge.count) : null,
+    ].filter(Boolean);
+    return (
+      <span key={day} role="gridcell" aria-selected={rank > 0 || between} className="group relative grid place-items-center p-px">
+        <button
+          type="button"
+          data-day={day}
+          data-mark={state ? state.tone : undefined}
+          data-match={matched ? '' : undefined}
+          data-retained={retained ? '' : undefined}
+          data-votes={badge ? badge.count : undefined}
+          tabIndex={day === visibleFocus ? 0 : -1}
+          aria-disabled={(!selectable && !readOnly) || undefined}
+          aria-label={labelParts.join(' - ')}
+          aria-describedby={tooltipId}
+          aria-current={day === today ? 'date' : undefined}
+          onClick={() => onDayClick(day)}
+          onKeyDown={(event) => onKeyDown(event, day)}
+          className={dayClass({
+            selectable,
+            forbidden,
+            tone: state?.tone ?? null,
+            isHighlighted,
+            matched,
+            outside,
+            today: day === today,
+            previewed,
+            between,
+            retained,
+            readOnly,
+          })}
+        >
+          <span className={forbidden || state?.tone === 'blocked' ? 'line-through decoration-[var(--color-rust)] decoration-2' : ''}>
+            {Number(day.slice(8, 10))}
+          </span>
+          {isHighlighted ? (
+            <span
+              aria-hidden="true"
+              className={`absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full ${
+                matched
+                  ? 'bg-[var(--color-on-jade)]'
+                  : state?.tone === 'fill'
+                    ? 'bg-[var(--color-on-ember)]'
+                    : 'bg-[var(--color-ember)]'
+              }`}
+            />
+          ) : null}
+          {badge ? (
+            <span
+              key={badge.count}
+              aria-hidden="true"
+              className="badge-pop absolute -right-1 -top-1 grid h-[1.15rem] min-w-[1.15rem] place-items-center rounded-full bg-[var(--color-vote)] px-1 font-mono text-[0.65rem] font-semibold text-[var(--color-on-vote)] ring-2 ring-[var(--color-ink-soft)]"
+            >
+              {badge.count}
+            </span>
+          ) : null}
+        </button>
+        {badge ? <VotersTooltip id={tooltipId!} day={day} badge={badge} column={column} /> : null}
+      </span>
+    );
+  }
+
   return (
     <div
       id={id}
       ref={rootRef}
       onKeyDown={onRootKeyDown}
-      className="date-picker select-none rounded-[12px] border border-[var(--color-rule)] bg-[var(--color-ink-soft)] p-3"
+      className={`date-picker mx-auto w-full select-none rounded-[12px] border border-[var(--color-rule)] bg-[var(--color-ink-soft)] p-3 ${multi ? 'max-w-[calc(45rem+2px)]' : 'max-w-[calc(22.5rem+2px)]'}`}
     >
       <div className="flex items-center justify-between gap-2">
         <button
@@ -491,12 +727,12 @@ export function DatePicker({
               onClick={() => switchView(view === 'days' ? 'months' : 'years')}
               aria-label={
                 view === 'days'
-                  ? `${monthTitle(month)}, choisir un autre mois`
+                  ? `${windowTitle(month, lastMonth)}, choisir un autre mois`
                   : `${month.year}, choisir une autre année`
               }
               className="group inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold tracking-tight tabular-nums transition-colors hover:bg-[var(--color-ink-raised)] hover:text-[var(--color-ember)]"
             >
-              {view === 'days' ? monthTitle(month) : month.year}
+              {view === 'days' ? windowTitle(month, lastMonth) : month.year}
               <Caret />
             </button>
           )}
@@ -512,16 +748,19 @@ export function DatePicker({
         </button>
       </div>
 
-      {markedMonths.length > 1 && view === 'days' ? (
+      {/* Les mois concernés, quand la fenêtre ne peut pas tous les montrer. */}
+      {markedMonths.length > months && view === 'days' ? (
         <nav aria-label="Mois concernés" className="mt-2 flex flex-wrap items-center gap-1.5">
           {markedMonths.map((key) => {
             const target: Month = { year: Number(key.slice(0, 4)), month: Number(key.slice(5, 7)) };
-            const current = compareMonths(target, month) === 0;
+            const current = isShown(target);
             return (
               <button
                 key={key}
                 type="button"
-                onClick={() => setMonth(target)}
+                onClick={() => {
+                  if (!current) setMonth(windowStart(target, months, { last: lastBound }));
+                }}
                 aria-current={current ? 'true' : undefined}
                 data-marked-month={key}
                 className={`rounded-full px-2.5 py-1 text-xs capitalize transition-colors ${
@@ -577,161 +816,17 @@ export function DatePicker({
       ) : null}
 
       {view === 'days' ? (
-      <div
-        ref={gridRef}
-        role="grid"
-        aria-label={`${label}, ${monthTitle(month)}`}
-        aria-multiselectable={groupable || undefined}
-        aria-readonly={readOnly || undefined}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={() => setDrag(null)}
-        onPointerLeave={isRange ? () => setHover(null) : undefined}
-        className={`mt-2 grid grid-cols-[1.75rem_repeat(7,minmax(0,1fr))] gap-y-1 ${groupable || isRange ? 'touch-none' : ''}`}
-      >
-        <div role="row" className="contents">
-          <span role="columnheader" className="label-tech grid place-items-center !text-[0.6rem]">
-            <span aria-hidden="true">S</span>
-            <span className="sr-only">Semaine</span>
-          </span>
-          {WEEKDAYS.map((weekday, index) =>
-            groupable ? (
-              <span key={index} role="columnheader" className="grid place-items-center">
-                <button
-                  type="button"
-                  onClick={() => commit(cycleGroup(marks, weekdayColumn(month, index), count, rules))}
-                  aria-label={`Faire avancer tous les ${weekday.long} affichés`}
-                  title={`Tous les ${weekday.long} affichés`}
-                  className="grid size-8 place-items-center rounded-full font-mono text-[0.7rem] uppercase text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-ink-raised)] hover:text-[var(--color-ember)]"
-                >
-                  {weekday.short}
-                </button>
-              </span>
-            ) : (
-              <span
-                key={index}
-                role="columnheader"
-                aria-label={weekday.long}
-                className="grid h-8 place-items-center font-mono text-[0.7rem] uppercase text-[var(--color-text-subtle)]"
-              >
-                {weekday.short}
-              </span>
-            ),
-          )}
+        <div
+          ref={gridRef}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={() => setDrag(null)}
+          onPointerLeave={isRange ? () => setHover(null) : undefined}
+          className={`mt-2 flex flex-wrap justify-center gap-x-6 gap-y-4 ${groupable || isRange ? 'touch-none' : ''}`}
+        >
+          {panes.map(renderMonth)}
         </div>
-
-        {weeks.map((week) => (
-          <div key={week.days[0]} role="row" className="contents">
-            <span role="rowheader" className="grid place-items-center">
-              {groupable ? (
-                <button
-                  type="button"
-                  onClick={() => commit(cycleGroup(marks, week.days, count, rules))}
-                  aria-label={`Faire avancer la semaine ${week.week}`}
-                  title={`Toute la semaine ${week.week}`}
-                  className="grid h-8 w-7 place-items-center rounded-full font-mono text-[0.6rem] text-[var(--color-text-subtle)] transition-colors hover:bg-[var(--color-ink-raised)] hover:text-[var(--color-ember)]"
-                >
-                  {week.week}
-                </button>
-              ) : (
-                <span className="font-mono text-[0.6rem] text-[var(--color-text-subtle)]">{week.week}</span>
-              )}
-            </span>
-            {week.days.map((day, column) => {
-              const selectable = isSelectable(day, rules);
-              const forbidden = disabledSet.has(day);
-              const rank = shown[day] ?? 0;
-              const state = rank > 0 ? states[rank - 1]! : null;
-              const isHighlighted = highlightedSet.has(day);
-              const matched = isHighlighted && rank === 1 && state?.tone === 'fill';
-              const previewed = Boolean(inDrag?.has(day) && selectable);
-              const between = Boolean(painted && day > painted.start && day < painted.end);
-              const retained = day === retainedDay;
-              const badge = badges?.[day];
-              const tooltipId = badge ? `${tooltipBase}-${day}` : undefined;
-              const labelParts = [
-                formatPickerDay(day),
-                painted ? rangeLabel(day, painted) : null,
-                state && multiple && !matched ? state.label : null,
-                matched && matchLabel ? matchLabel : isHighlighted && highlightLabel ? highlightLabel : null,
-                forbidden && disabledLabel ? disabledLabel : null,
-                retained ? 'date retenue' : null,
-                badge ? voteCountLabel(badge.count) : null,
-              ].filter(Boolean);
-              return (
-                <span
-                  key={day}
-                  role="gridcell"
-                  aria-selected={rank > 0 || between}
-                  className="group relative grid place-items-center p-px"
-                >
-                  <button
-                    type="button"
-                    data-day={day}
-                    data-mark={state ? state.tone : undefined}
-                    data-match={matched ? '' : undefined}
-                    data-retained={retained ? '' : undefined}
-                    data-votes={badge ? badge.count : undefined}
-                    tabIndex={day === visibleFocus ? 0 : -1}
-                    aria-disabled={(!selectable && !readOnly) || undefined}
-                    aria-label={labelParts.join(' - ')}
-                    aria-describedby={tooltipId}
-                    aria-current={day === today ? 'date' : undefined}
-                    onClick={() => onDayClick(day)}
-                    onKeyDown={(event) => onKeyDown(event, day)}
-                    className={dayClass({
-                      selectable,
-                      forbidden,
-                      tone: state?.tone ?? null,
-                      isHighlighted,
-                      matched,
-                      outside: !inMonth(day, month),
-                      today: day === today,
-                      previewed,
-                      between,
-                      retained,
-                      readOnly,
-                    })}
-                  >
-                    <span
-                      className={
-                        forbidden || state?.tone === 'blocked'
-                          ? 'line-through decoration-[var(--color-rust)] decoration-2'
-                          : ''
-                      }
-                    >
-                      {Number(day.slice(8, 10))}
-                    </span>
-                    {isHighlighted ? (
-                      <span
-                        aria-hidden="true"
-                        className={`absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full ${
-                          matched
-                            ? 'bg-[var(--color-on-jade)]'
-                            : state?.tone === 'fill'
-                              ? 'bg-[var(--color-on-ember)]'
-                              : 'bg-[var(--color-ember)]'
-                        }`}
-                      />
-                    ) : null}
-                    {badge ? (
-                      <span
-                        key={badge.count}
-                        aria-hidden="true"
-                        className="badge-pop absolute -right-1 -top-1 grid h-[1.15rem] min-w-[1.15rem] place-items-center rounded-full bg-[var(--color-vote)] px-1 font-mono text-[0.65rem] font-semibold text-[var(--color-on-vote)] ring-2 ring-[var(--color-ink-soft)]"
-                      >
-                        {badge.count}
-                      </span>
-                    ) : null}
-                  </button>
-                  {badge ? <VotersTooltip id={tooltipId!} day={day} badge={badge} column={column} /> : null}
-                </span>
-              );
-            })}
-          </div>
-        ))}
-      </div>
       ) : null}
 
       {isRange && rangeNames && currentRange.start && currentRange.end ? (
@@ -867,6 +962,13 @@ const NAV_LABELS: Record<View, { previous: string; next: string }> = {
  * saute pas quand on change de vue.
  */
 const BLOCK_GRID = 'mt-2 grid min-h-[17rem] grid-cols-3 grid-rows-4 gap-1.5';
+
+/**
+ * La place d'un mois : 1,75rem pour les numéros de semaine et sept cases d'au
+ * plus 2,75rem, soit 21rem. En deçà de 15rem par mois, deux mois passent l'un
+ * sous l'autre.
+ */
+const PANE = 'min-w-0 max-w-[21rem] flex-[1_1_15rem]';
 
 /** L'entre-deux d'une plage : l'incandescent, à peine posé. */
 const RANGE_TINT = 'bg-[color-mix(in_oklab,var(--color-ember)_16%,transparent)]';

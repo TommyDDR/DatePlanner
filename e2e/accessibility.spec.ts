@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test';
-import { createHash, randomBytes } from 'node:crypto';
-import { dayButton, dayFromToday, db, resetDatabase } from './helpers';
+import { expect, test, type Browser, type Locator, type Page } from '@playwright/test';
+import { randomBytes } from 'node:crypto';
+import { dayButton, dayFromToday, db, resetDatabase, signInAs } from './helpers';
 
 /**
  * Accessibilité (FR-034, SC-009) : chaque page passe axe dans les deux thèmes,
@@ -39,19 +39,6 @@ async function fixture(): Promise<Fixture> {
     },
   });
   return { ownerId: owner.id, publicId };
-}
-
-/** Une session ouverte en base, posée dans le contexte : pas de détour par le formulaire. */
-async function signInAs(context: BrowserContext, userId: string, baseURL: string): Promise<void> {
-  const token = randomBytes(32).toString('base64url');
-  await db.session.create({
-    data: {
-      userId,
-      tokenHash: createHash('sha256').update(token).digest('hex'),
-      expiresAt: new Date(Date.now() + 86_400_000),
-    },
-  });
-  await context.addCookies([{ name: 'dp_session', value: token, url: baseURL }]);
 }
 
 async function newContext(browser: Browser, colorScheme: 'light' | 'dark') {
