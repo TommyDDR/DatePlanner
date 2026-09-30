@@ -14,9 +14,12 @@ dans `specs/001-date-poll/`.
   Google, gestion par le créateur, page d'accueil, thèmes), avec la page
   compte, les pages légales, la conservation automatique, les fichiers
   d'exploitation et la documentation.
-- **Mise en production** : à faire par l'exploitant (VM 102, DNS, client
-  OAuth, Traefik, unités systemd, version `v0.1.0`, surveillance extérieure,
-  sauvegardes hors machine), selon `README.md` § 6 et `deploy.md`.
+- **Mise en production** (30 septembre 2026) : VM 102 créée et
+  provisionnée, CNAME OVH, route Traefik et certificat Let's Encrypt, unités
+  systemd installées, service en ligne sur `https://dateplanner.laserit.fr`,
+  sauvegarde nocturne éprouvée une fois. Restent : le client OAuth Google et
+  le mot de passe d'application Gmail dans `/opt/dateplanner/.env`, la
+  surveillance extérieure, la copie des sauvegardes hors de la VM.
 - **Restauration éprouvée** : pas encore. Date et résultat à consigner ici
   après le premier essai de `scripts/restore.sh` sur une base vierge.
 
