@@ -101,7 +101,7 @@ test('un sondage sur plusieurs mois s’ouvre sur le premier jour à venir et si
   await expect(dayButton(page, later)).toBeVisible();
 });
 
-test('les jours vont du plus voté au moins voté, et les plus votés sont cernés d’or', async ({ page }) => {
+test('les jours vont du plus voté au moins voté, et les plus votés portent une pastille dorée', async ({ page }) => {
   const [early, middle, late] = [dayFromToday(3), dayFromToday(4), dayFromToday(5)];
   const publicId = await createPoll([early, middle, late]);
   const poll = await db.poll.findUniqueOrThrow({ where: { publicId }, include: { days: true } });
@@ -129,9 +129,13 @@ test('les jours vont du plus voté au moins voté, et les plus votés sont cern�
   await expect(rows.nth(0)).toContainText('Bob');
   await expect(rows.nth(1)).toContainText('Cy');
   await expect(rows.nth(2)).toContainText('Dan');
+  await expect(rows.nth(0).locator('[data-badge]')).toHaveAttribute('data-badge', 'leading');
+  await expect(rows.nth(1).locator('[data-badge]')).toHaveAttribute('data-badge', 'leading');
+  await expect(rows.nth(2).locator('[data-badge]')).toHaveAttribute('data-badge', 'vote');
 
-  await expect(dayButton(page, middle)).toHaveAttribute('data-leading', '');
-  await expect(dayButton(page, late)).toHaveAttribute('data-leading', '');
-  await expect(dayButton(page, early)).not.toHaveAttribute('data-leading');
+  const badge = (day: string) => dayButton(page, day).locator('[data-badge]');
+  await expect(badge(middle)).toHaveAttribute('data-badge', 'leading');
+  await expect(badge(late)).toHaveAttribute('data-badge', 'leading');
+  await expect(badge(early)).toHaveAttribute('data-badge', 'vote');
   await expect(dayButton(page, middle)).toHaveAccessibleName(/le plus choisi/);
 });

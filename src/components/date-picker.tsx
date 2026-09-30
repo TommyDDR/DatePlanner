@@ -66,9 +66,9 @@ export type DayBadge = { count: number; voters: readonly Voter[] };
  * Les jours `withdrawn` sont ceux qu'on s'apprête à retirer : un contour
  * pointillé les garde en vue jusqu'à l'envoi, et un clic les rétablit.
  *
- * Avec des pastilles de votes, les jours qui réunissent le plus de votants
- * sont cernés d'or : le jour qui arrange le plus de monde se voit sans lire
- * les chiffres.
+ * Avec des pastilles de votes, celles des jours qui réunissent le plus de
+ * votants sont dorées : le jour qui arrange le plus de monde se voit sans
+ * comparer les chiffres.
  *
  * Un jour mis en évidence (`highlighted`) qui passe au PREMIER état se peint
  * en jade : c'est le jour où les deux parties se rejoignent - le jour proposé
@@ -713,7 +713,6 @@ export function DatePicker({
             readOnly,
             locked: isLocked,
             withdrawn: isWithdrawn,
-            leading,
           })}
         >
           <span
@@ -743,7 +742,10 @@ export function DatePicker({
             <span
               key={badge.count}
               aria-hidden="true"
-              className="badge-pop absolute -right-1 -top-1 grid h-[1.15rem] min-w-[1.15rem] place-items-center rounded-full bg-[var(--color-vote)] px-1 font-mono text-[0.65rem] font-semibold text-[var(--color-on-vote)] ring-2 ring-[var(--color-ink-soft)]"
+              data-badge={leading ? 'leading' : 'vote'}
+              className={`badge-pop absolute -right-1 -top-1 grid h-[1.15rem] min-w-[1.15rem] place-items-center rounded-full px-1 font-mono text-[0.65rem] font-semibold ring-2 ring-[var(--color-ink-soft)] ${
+                leading ? LEADING_BADGE : VOTE_BADGE
+              }`}
             >
               {badge.count}
             </span>
@@ -953,7 +955,7 @@ export function DatePicker({
           ) : null}
           {leadingSet.size > 0 ? (
             <span className="label-tech inline-flex items-center gap-1.5">
-              <span aria-hidden="true" className="size-3 rounded-[4px] ring-2 ring-[var(--color-leading)]" />
+              <span aria-hidden="true" className={`size-3 rounded-full ${LEADING_BADGE}`} />
               {LEADING_LABEL}
             </span>
           ) : null}
@@ -1150,8 +1152,9 @@ function RangeFooter({
 
 const LEADING_LABEL = 'le plus choisi';
 
-/** Le contour doré d'un jour parmi les plus votés : un anneau, qui se pose sur n'importe quel aplat. */
-const LEADING_RING = 'ring-2 ring-[var(--color-leading)]';
+/** La pastille d'un jour voté, et celle, dorée, d'un jour parmi les plus votés. */
+const VOTE_BADGE = 'bg-[var(--color-vote)] text-[var(--color-on-vote)]';
+const LEADING_BADGE = 'bg-[var(--color-leading)] text-[var(--color-on-leading)]';
 
 const BLOCKED_HATCH =
   'bg-[repeating-linear-gradient(135deg,transparent_0_5px,color-mix(in_oklab,var(--color-rust)_30%,transparent)_5px_7px)]';
@@ -1187,13 +1190,10 @@ function dayClass(state: {
   locked?: boolean;
   /** Sur le point d'être retiré : le contour pointillé. */
   withdrawn?: boolean;
-  /** Parmi les jours qui réunissent le plus de votants : le contour doré, quel que soit l'aplat. */
-  leading?: boolean;
 }): string {
   const parts = [
     'relative grid aspect-square w-full max-w-11 place-items-center rounded-[10px] text-sm tabular-nums outline-none transition-[background-color,color,box-shadow] duration-150 motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-[var(--color-ember)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-ink-soft)]',
   ];
-  if (state.leading) parts.push(LEADING_RING);
 
   if (state.retained) {
     parts.push(

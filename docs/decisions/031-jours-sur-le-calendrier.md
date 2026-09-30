@@ -8,7 +8,7 @@ Dans le panneau du créateur, « Jours proposés » n'est plus une liste : c'est
 
 Un vote peut arriver pendant que le créateur prépare ses changements. La mise à jour en direct relit alors le panneau : le jour passe au gris, son retrait tombe, et un avertissement le nomme. Si le vote arrive entre l'envoi et l'écriture, le serveur refuse tout (`DAY_HAS_VOTES`) et relit la page, qui avertit de même.
 
-« Qui est disponible ? » range les jours du plus voté au moins voté, le plus proche d'abord à égalité. Dans le calendrier, les jours qui réunissent le plus de votants, tous en cas d'égalité, sont cernés d'or (`--color-leading`, l'ambre de laserit.fr).
+« Qui est disponible ? » range les jours du plus voté au moins voté, le plus proche d'abord à égalité. Dans le calendrier, les jours qui réunissent le plus de votants, tous en cas d'égalité, sont cernés d'or (`--color-leading`, l'ambre de laserit.fr) ; la décision 032 remplace ce contour par une pastille dorée.
 
 ## Pourquoi
 

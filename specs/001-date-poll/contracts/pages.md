@@ -25,7 +25,7 @@ page 404 ordinaire, identique qu'un objet n'existe pas ou soit refusé.
 ## `/s/{publicId}` en détail
 
 **Pour tous** : titre, description, état (bandeau « Sondage clos » et date retenue en jade si
-clos), calendrier avec pastilles de votes, jours les plus votés cernés d'or, infobulle des
+clos), calendrier avec pastilles de votes, dorées pour les jours les plus votés, infobulle des
 votants au survol et au focus, liste « Qui est disponible ? » sous le calendrier (jour, nombre,
 noms ; réponse connectée marquée), du plus voté au moins voté, le plus proche d'abord à égalité.
 Abonnement au flux en direct (voir [http-api.md](http-api.md)).
