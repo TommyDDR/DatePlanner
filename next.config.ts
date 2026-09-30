@@ -1,3 +1,4 @@
+import { networkInterfaces } from 'node:os';
 import type { NextConfig } from 'next';
 import { SITE_URL } from './src/config/identity';
 import { contentSecurityPolicy } from './src/lib/csp';
@@ -14,6 +15,21 @@ const isProduction = process.env.NODE_ENV === 'production';
  */
 const API_CONTENT_SECURITY_POLICY = contentSecurityPolicy({ nonce: null, isProduction });
 
+/**
+ * Les adresses IPv4 de cette machine sur ses réseaux.
+ *
+ * En développement, Next ne sert ses scripts et son rechargement à chaud qu'à
+ * `localhost` : ouverte depuis un téléphone par `http://192.168.x.y:3000`, la
+ * page s'affiche mais rien n'y répond, calendrier compris. Seules les adresses
+ * de la machine elle-même sont admises, pas tout le réseau local. Sans effet
+ * en production.
+ */
+function localNetworkAddresses(): string[] {
+  return Object.values(networkInterfaces())
+    .flat()
+    .flatMap((address) => (address && address.family === 'IPv4' && !address.internal ? [address.address] : []));
+}
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
@@ -22,6 +38,7 @@ const nextConfig: NextConfig = {
   // `playwright.config.ts` en donne donc un autre, sous `.next` pour rester
   // ignoré de git et d'ESLint. Sans la variable, rien ne change.
   distDir: process.env.NEXT_DIST_DIR || '.next',
+  allowedDevOrigins: isProduction ? [] : localNetworkAddresses(),
   serverExternalPackages: ['@node-rs/argon2'],
   // En production, tout ce qui arrive en clair repart en HTTPS
   // (`src/lib/https-redirect.ts`), et une adresse publique qui ne serait pas
