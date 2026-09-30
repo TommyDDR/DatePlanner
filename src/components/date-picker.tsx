@@ -89,11 +89,13 @@ export type DayBadge = { count: number; voters: readonly Voter[] };
  * « Tout le mois » et « Toute l'année » prennent un bloc d'un geste, ramené
  * aux bornes permises.
  *
- * Deux mois peuvent se montrer côte à côte (`months`), l'un sous l'autre
- * quand la place manque. Chaque grille ne rend alors que ses propres jours :
- * un jour n'apparaît qu'une fois, et une colonne ou une semaine n'avance que
- * ce que sa grille montre. Une grille ne s'élargit jamais au-delà de 21rem -
- * ses cases restent carrées et serrées -, elle se centre.
+ * Deux mois peuvent se montrer côte à côte (`months`). Chaque grille ne rend
+ * alors que ses propres jours : un jour n'apparaît qu'une fois, et une
+ * colonne ou une semaine n'avance que ce que sa grille montre. Quand la place
+ * manque pour les mettre côte à côte - un téléphone -, le calendrier n'en
+ * montre qu'un, et redevient un calendrier d'un mois en tout : titre,
+ * flèches, clavier, mois signalés. Une grille ne s'élargit jamais au-delà de
+ * 21rem - ses cases restent carrées et serrées -, elle se centre.
  *
  * Le titre se CLIQUE : « Septembre 2026 » ouvre la vue des douze mois de
  * l'année, et l'année celle de douze années. Choisir redescend d'un cran,
@@ -291,7 +293,7 @@ export function DatePicker({
   readOnly = false,
   markedMonths = [],
   initialDay = null,
-  months = 1,
+  months: wanted = 1,
 }: DatePickerProps) {
   const multiple = mode === 'multiple';
   /** Les en-têtes de colonne et de semaine ne font avancer un groupe que si l'on peut choisir. */
@@ -345,6 +347,11 @@ export function DatePicker({
     : sortedHighlighted.length > 0
       ? monthOf(sortedHighlighted[sortedHighlighted.length - 1]!)
       : null;
+  // Le rendu serveur suppose la place de deux mois ; la mesure, au montage,
+  // ramène à un seul s'il n'y en a pas. D'ici là, le second est masqué par
+  // une requête de conteneur au même seuil : il ne s'empile jamais.
+  const [narrow, setNarrow] = useState(false);
+  const months = narrow ? 1 : wanted;
   const [month, setMonth] = useState<Month>(() =>
     windowStart(
       initialDay && Object.keys(marks).length === 0
@@ -359,6 +366,21 @@ export function DatePicker({
       Object.keys(marks).sort()[0] ?? initialDay ?? highlighted[0] ?? (min && min > today ? min : today),
   );
   const [view, setView] = useState<View>('days');
+  // Un mois de moins ou de plus (téléphone tourné, fenêtre redimensionnée) :
+  // à un mois, on garde en vue celui du jour qui porte le focus ; à deux, la
+  // fenêtre ne finit pas sur un mois vide.
+  const [laidOut, setLaidOut] = useState(months);
+  if (laidOut !== months) {
+    setLaidOut(months);
+    const second = shiftMonth(month, 1);
+    setMonth(
+      months === 1
+        ? compareMonths(monthOf(focusDay), second) === 0
+          ? second
+          : month
+        : windowStart(month, months, { first: firstBound, last: lastBound }),
+    );
+  }
   const keyboardMove = useRef(false);
   const viewMove = useRef(false);
   const pointerHandled = useRef(false);
@@ -400,6 +422,17 @@ export function DatePicker({
   function isShown(target: Month): boolean {
     return compareMonths(target, month) >= 0 && compareMonths(target, lastMonth) <= 0;
   }
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (wanted < 2 || !root || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => {
+      const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      setNarrow(entry!.contentRect.width < SIDE_BY_SIDE_REM * rem);
+    });
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, [wanted]);
 
   useEffect(() => {
     if (!keyboardMove.current) return;
@@ -567,14 +600,14 @@ export function DatePicker({
    * cases garderaient leur taille et s'écarteraient les unes des autres ; la
    * grille reste donc à ses proportions, centrée dans l'espace disponible.
    */
-  function renderMonth(pane: { month: Month; weeks: ReturnType<typeof calendarWeeks> }) {
+  function renderMonth(pane: { month: Month; weeks: ReturnType<typeof calendarWeeks> }, index: number) {
     const paneMonth = pane.month;
     // À deux mois, une grille ne rend que ses propres jours : un groupe ne
     // fait avancer que ce qu'elle montre.
     const own = (days: readonly Day[]) => (multi ? days.filter((day) => inMonth(day, paneMonth)) : [...days]);
     const scope = multi ? ofMonth(paneMonth) : 'affichés';
     return (
-      <div key={`${paneMonth.year}-${paneMonth.month}`} className={PANE}>
+      <div key={`${paneMonth.year}-${paneMonth.month}`} className={index > 0 ? `${PANE} ${SECOND_PANE}` : PANE}>
         {multi ? (
           <p className="mb-1 text-center text-xs font-semibold tracking-tight">{monthTitle(paneMonth)}</p>
         ) : null}
@@ -761,7 +794,7 @@ export function DatePicker({
       id={id}
       ref={rootRef}
       onKeyDown={onRootKeyDown}
-      className={`date-picker mx-auto w-full select-none rounded-[12px] border border-[var(--color-rule)] bg-[var(--color-ink-soft)] p-3 ${multi ? 'max-w-[calc(45rem+2px)]' : 'max-w-[calc(22.5rem+2px)]'}`}
+      className={`date-picker @container mx-auto w-full select-none rounded-[12px] border border-[var(--color-rule)] bg-[var(--color-ink-soft)] p-3 ${wanted > 1 ? 'max-w-[calc(45rem+2px)]' : 'max-w-[calc(22.5rem+2px)]'}`}
     >
       <div className="flex items-center justify-between gap-2">
         <button
@@ -1043,10 +1076,17 @@ const BLOCK_GRID = 'mt-2 grid min-h-[17rem] grid-cols-3 grid-rows-4 gap-1.5';
 
 /**
  * La place d'un mois : 1,75rem pour les numéros de semaine et sept cases d'au
- * plus 2,75rem, soit 21rem. En deçà de 15rem par mois, deux mois passent l'un
- * sous l'autre.
+ * plus 2,75rem, soit 21rem, et au moins 15rem.
  */
 const PANE = 'min-w-0 max-w-[21rem] flex-[1_1_15rem]';
+
+/**
+ * Deux grilles de 15rem et leur écart : en deçà, deux mois ne tiennent pas
+ * côte à côte et le calendrier n'en montre qu'un. Le même seuil, en requête de
+ * conteneur, masque le second avant que la mesure ne l'ait retiré.
+ */
+const SIDE_BY_SIDE_REM = 31.5;
+const SECOND_PANE = 'hidden @min-[31.5rem]:block';
 
 /** L'entre-deux d'une plage : l'incandescent, à peine posé. */
 const RANGE_TINT = 'bg-[color-mix(in_oklab,var(--color-ember)_16%,transparent)]';
