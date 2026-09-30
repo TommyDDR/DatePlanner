@@ -1,0 +1,557 @@
+@import 'tailwindcss';
+
+/**
+ * Système visuel - repris de laserit.fr (FR-031) : « l'atelier de précision ».
+ *
+ * Le vocabulaire est celui du plan technique : traits fins, cotes, repères de
+ * coupe, monospace pour tout ce qui est mesure. Posé sur une matière chaude
+ * (noir de bois brûlé, papier crème) plutôt que sur le gris d'usage.
+ *
+ * Un seul accent - l'incandescence du laser - utilisé rarement, donc lisible
+ * partout où il apparaît : état sélectionné, action principale, pastille de
+ * vote. Le jade marque la date retenue.
+ */
+
+@theme {
+  /* Chaque couleur porte ses deux valeurs, clair puis sombre, résolues par
+     `light-dark()` à partir du `color-scheme` posé sur `:root`. Un seul jeu de
+     jetons : un thème ne peut pas oublier une couleur que l'autre a. */
+
+  /* Matières */
+  --color-ink: light-dark(#f6f2ea, #0c0a09);
+  --color-ink-soft: light-dark(#fbf9f4, #151210);
+  --color-ink-raised: light-dark(#ffffff, #1e1a17);
+  --color-paper: #f5f1e8;
+  --color-paper-dim: #e6e0d3;
+
+  /* Texte */
+  --color-text: light-dark(#17130f, #f5f1e8);
+  --color-text-muted: light-dark(#57504a, #a89e91);
+  --color-text-faint: light-dark(#776e64, #6f665c);
+  /* Propre à DatePlanner : le texte discret mais INFORMATIF - aides sous les
+     champs, étiquettes techniques, numéros de semaine. En sombre, `text-faint`
+     de laserit.fr n'offre que 3,3:1 sur la matière ; celui-ci passe 5:1
+     (SC-009). `text-faint` reste aux éléments décoratifs ou inactifs. */
+  --color-text-subtle: light-dark(#776e64, #8f857a);
+
+  /* Incandescence. En clair, l'orange vif ne passe pas le contraste sur un
+     fond papier : le ton est descendu d'un cran, et le texte porté par un
+     aplat incandescent devient clair - d'où `--color-on-ember`, qui suit
+     l'aplat et non le fond de page. */
+  --color-ember: light-dark(#c2410c, #ff5a1f);
+  --color-ember-soft: light-dark(#9a3412, #ff8a5c);
+  --color-ember-deep: light-dark(#7c2d12, #c23c0d);
+  --color-on-ember: light-dark(#fff7ed, #0c0a09);
+
+  --color-incandescent: light-dark(#f97316, #ffe0a3);
+  --color-incandescent-halo: light-dark(#fb923c, #ff6a1f);
+
+  /* États. Le jade sert d'APLAT à la date retenue, et suit la même règle que
+     la braise : le texte posé dessus s'oppose à l'aplat. */
+  --color-jade: light-dark(#157f52, #3fb984);
+  --color-on-jade: light-dark(#f0fdf4, #0c0a09);
+  --color-amber: light-dark(#8a6110, #e8b62c);
+  --color-rust: light-dark(#b23c14, #c4491f);
+  /* Propre à DatePlanner : le TEXTE d'une erreur ou d'une action
+     destructrice. En sombre, `rust` de laserit.fr n'offre que 3,8:1 sur la
+     matière ; celui-ci passe 4,9:1 même sur une surface relevée (SC-009).
+     `rust` reste aux bordures, hachures et barrés. */
+  --color-danger: light-dark(#b23c14, #e46a40);
+
+  /* Traits */
+  --color-rule: light-dark(#e2dbcd, #2a2421);
+  --color-rule-strong: light-dark(#cdc4b4, #3d3531);
+
+  /* Trait de plan : il s'oppose au fond - encre sur papier, craie sur bois brûlé. */
+  --color-draft: light-dark(#0c0a09, #f5f1e8);
+
+  /* Halos du fond : deux dégradés très doux, pris dans la matière du mode. */
+  --color-glow-a: light-dark(#ffffff, #1a1512);
+  --color-glow-b: light-dark(#f3ebdd, #17110e);
+
+  /* Pastille de vote et date retenue : alias des aplats, nommés par leur rôle. */
+  --color-vote: var(--color-ember);
+  --color-on-vote: var(--color-on-ember);
+  --color-retained: var(--color-jade);
+  --color-on-retained: var(--color-on-jade);
+
+  /* Les polices sont chargées par next/font, qui expose ces variables. La
+     pile de repli reste complète : si le chargement échoue, la page garde une
+     typographie cohérente. */
+  --font-display: var(--font-display-loaded), 'Segoe UI', system-ui, sans-serif;
+  --font-mono: var(--font-mono-loaded), 'Cascadia Code', ui-monospace, monospace;
+
+  --radius-card: 14px;
+  --radius-pill: 999px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Base                                                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Le thème vient du système par défaut : `color-scheme: light dark` laisse le
+ * navigateur trancher, et `light-dark()` suit. Un choix explicite du visiteur
+ * est posé sur `<html>` par le script du `<head>` avant le premier rendu.
+ */
+:root {
+  color-scheme: light dark;
+  --header-height: 4.25rem;
+}
+
+/**
+ * Bascule du thème : la transition n'existe que pendant le changement - sans
+ * quoi la page entière s'animerait à l'arrivée. La durée est reprise dans
+ * `theme-toggle.tsx`.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-theme-transition],
+  :root[data-theme-transition] *,
+  :root[data-theme-transition] *::before,
+  :root[data-theme-transition] *::after {
+    transition: background-color 260ms ease, border-color 260ms ease, color 260ms ease,
+      fill 260ms ease, stroke 260ms ease, box-shadow 260ms ease, outline-color 260ms ease !important;
+    transition-delay: 0s !important;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 260ms;
+    animation-timing-function: ease;
+  }
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: calc(var(--header-height) + 1rem);
+  -webkit-text-size-adjust: 100%;
+}
+
+a,
+button,
+label,
+select,
+summary {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: color-mix(in oklab, var(--color-ember) 14%, transparent);
+}
+
+body {
+  background: var(--color-ink);
+  color: var(--color-text);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  background-image: radial-gradient(circle at 15% -10%, var(--color-glow-a) 0%, transparent 55%),
+    radial-gradient(circle at 90% 0%, var(--color-glow-b) 0%, transparent 45%);
+  background-attachment: fixed;
+}
+
+fieldset {
+  min-width: 0;
+}
+
+::selection {
+  background: var(--color-ember);
+  color: var(--color-on-ember);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ember);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Composants récurrents                                                       */
+/* -------------------------------------------------------------------------- */
+
+@layer components {
+  /** Étiquette technique : tout ce qui est mesure, statut, référence. */
+  .label-tech {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-text-subtle);
+  }
+
+  .surface {
+    background: var(--color-ink-soft);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-card);
+  }
+
+  .surface-raised {
+    background: var(--color-ink-raised);
+    border: 1px solid var(--color-rule-strong);
+    border-radius: var(--radius-card);
+  }
+
+  /** Action principale : la seule chose incandescente d'un écran. */
+  .btn-ember {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: var(--color-ember);
+    color: var(--color-on-ember);
+    font-weight: 600;
+    padding: 0.875rem 1.5rem;
+    border-radius: var(--radius-pill);
+    transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  }
+
+  .btn-ember:hover {
+    background: var(--color-ember-soft);
+    box-shadow: 0 0 0 1px var(--color-ember), 0 8px 32px -12px var(--color-ember);
+    transform: translateY(-1px);
+  }
+
+  .btn-ember:disabled {
+    opacity: 0.5;
+    transform: none;
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid var(--color-rule-strong);
+    color: var(--color-text);
+    font-weight: 500;
+    padding: 0.875rem 1.5rem;
+    border-radius: var(--radius-pill);
+    transition: border-color 160ms ease, background 160ms ease;
+  }
+
+  .btn-ghost:hover {
+    border-color: var(--color-ember);
+    background: color-mix(in oklab, var(--color-ember) 8%, transparent);
+  }
+
+  .btn-ghost:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /** Action destructrice : discrète au repos, franche au survol. */
+  .btn-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid color-mix(in oklab, var(--color-rust) 55%, transparent);
+    color: var(--color-danger);
+    font-weight: 500;
+    padding: 0.625rem 1.125rem;
+    border-radius: var(--radius-pill);
+    transition: background 160ms ease;
+  }
+
+  .btn-danger:hover {
+    background: color-mix(in oklab, var(--color-rust) 10%, transparent);
+  }
+
+  .field {
+    width: 100%;
+    background: var(--color-ink);
+    border: 1px solid var(--color-rule-strong);
+    border-radius: 10px;
+    padding: 0.75rem 0.875rem;
+    color: var(--color-text);
+    font-size: 0.9375rem;
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+  }
+
+  .field::placeholder {
+    color: var(--color-text-subtle);
+  }
+
+  /* Sous 16 px, Safari iOS grossit la page dès que le champ prend le focus. */
+  @media (pointer: coarse) {
+    .field {
+      font-size: 1rem;
+    }
+  }
+
+  .field:focus {
+    outline: none;
+    border-color: var(--color-ember);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-ember) 15%, transparent);
+  }
+
+  .field-error {
+    border-color: var(--color-rust);
+  }
+
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  @media (pointer: coarse) {
+    .icon-btn {
+      min-width: 40px;
+      min-height: 40px;
+    }
+
+    .btn-ember,
+    .btn-ghost,
+    .btn-danger {
+      min-height: 44px;
+    }
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Animations                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/** Apparition au défilement, sans bibliothèque. L'élément reste visible sans script. */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 640ms cubic-bezier(0.22, 1, 0.36, 1), transform 640ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/** Tracé du laser : le trait se dessine. */
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes ember-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.animate-draw {
+  stroke-dasharray: var(--dash, 1200);
+  stroke-dashoffset: var(--dash, 1200);
+  animation: draw 2.8s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+.animate-ember {
+  animation: ember-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.skeleton {
+  background: var(--color-rule);
+  border-radius: 6px;
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+/** Une pastille qui vient de changer arrive par un léger saut, sans rien décaler. */
+@keyframes badge-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.badge-pop {
+  animation: badge-pop 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.live-notice {
+  animation: live-notice-in 220ms ease-out;
+}
+
+@keyframes live-notice-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Démonstration de l'accueil                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * La démonstration du sondage (FR-032) : la grille d'un mois se trace comme
+ * un trait de découpe laser, les jours proposés s'allument, les pastilles de
+ * votes apparaissent et comptent, la date retenue s'illumine en jade.
+ *
+ * N'animent que `transform` et `opacity` : le compositeur s'en charge seul,
+ * sans repeindre la page. Chaque animation garde son état final
+ * (`both`) : sous « réduire les animations », la règle globale les ramène à
+ * l'instant, et la démonstration s'affiche d'emblée dans cet état final.
+ */
+@keyframes demo-trace {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes demo-head {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(var(--run, 0px));
+    opacity: 0;
+  }
+}
+
+@keyframes demo-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes demo-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes demo-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.demo-trace {
+  transform-box: fill-box;
+  transform-origin: left center;
+  animation: demo-trace 1.5s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+.demo-head {
+  animation: demo-head 1.5s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+.demo-fade {
+  animation: demo-fade 0.5s ease-out both;
+  animation-delay: var(--delay, 0s);
+}
+
+.demo-out {
+  animation: demo-out 0.2s ease-in both;
+  animation-delay: var(--delay, 0s);
+}
+
+.demo-pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: demo-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--delay, 0s);
+}
+
+/* Le piège à robots : hors flux, hors lecteur d'écran, hors parcours clavier. */
+.honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/**
+ * Réduire les animations (FR-033), pour TOUT le site.
+ *
+ * Un visiteur qui refuse le mouvement ne doit en recevoir nulle part : plutôt
+ * qu'une exception par composant - qu'on finit par oublier -, une règle
+ * globale ramène toute animation et toute transition à l'instant. Les états
+ * finaux restent : c'est la forme qui porte l'information, pas le mouvement.
+ */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+
+  .animate-draw {
+    stroke-dashoffset: 0;
+  }
+}

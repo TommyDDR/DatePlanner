@@ -1,0 +1,126 @@
+# Intégration continue.
+#
+# Les contrôles que la constitution déclare obligatoires avant toute fusion,
+# rejoués sur chaque poussée et chaque pull request.
+#
+# Les tests parlent à une VRAIE base : c'est une décision du projet, pas une
+# facilité — un test qui passerait contre une imitation ne prouverait rien du
+# comportement réel. PostgreSQL est donc lancé en service, à la même version
+# majeure qu'en production.
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+# Une poussée pendant qu'un contrôle tourne annule le précédent : c'est le
+# dernier état de la branche qui compte, pas la file d'attente.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: dateplanner_test
+        ports: ['5432:5432']
+        # Sans ce contrôle, les étapes démarrent avant que le moteur accepte
+        # les connexions et la première migration échoue une fois sur deux.
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dateplanner_test?schema=public
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      APP_SECRET: integration-continue-secret-0123456789abcdef
+      CRON_SECRET: ci-cron-secret
+      EMAIL_DRIVER: console
+      EMAIL_FROM: DatePlanner <ci@localhost>
+      # Surtout pas ici : les tests anti-flood vérifient que les compteurs
+      # limitent pour de bon.
+      RATE_LIMIT_DISABLED: ''
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      # Les dépendances qui partent en production, et elles seules. Échoue sur
+      # toute faille connue, quelle qu'en soit la gravité. Une faille venue
+      # d'une dépendance transitive se corrige par `overrides` (package.json),
+      # jamais en abaissant ce seuil.
+      - name: Audit des dépendances de production
+        run: npm audit --omit=dev
+
+      - name: Générer le client Prisma
+        run: npx prisma generate
+
+      - name: Appliquer les migrations
+        run: npx prisma migrate deploy
+
+      # Le fichier d'environnement de test n'est pas versionné : il est écrit
+      # ici à partir des variables du job.
+      - name: Écrire .env.test
+        run: |
+          {
+            echo "DATABASE_URL=\"$DATABASE_URL\""
+            echo "NEXT_PUBLIC_SITE_URL=\"$NEXT_PUBLIC_SITE_URL\""
+            echo "APP_SECRET=\"$APP_SECRET\""
+            echo "CRON_SECRET=\"$CRON_SECRET\""
+            echo "EMAIL_DRIVER=\"$EMAIL_DRIVER\""
+            echo "EMAIL_FROM=\"$EMAIL_FROM\""
+            echo 'RATE_LIMIT_DISABLED=""'
+          } > .env.test
+
+      - name: Types
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test
+
+      # Un build de production refuse une adresse publique en clair
+      # (`src/lib/https-redirect.ts`) : il reçoit donc l'adresse réelle, les
+      # tests gardant la leur dans `.env.test`.
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: https://dateplanner.laserit.fr
+
+      # Les parcours dans un VRAI navigateur, après les quatre contrôles : un
+      # formulaire qui perd sa saisie ou un bouton qui ne monte pas ne se voit
+      # que là. Chromium seul.
+      - name: Installer Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Tests de bout en bout
+        run: npm run e2e
+
+      - name: Rapport Playwright
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

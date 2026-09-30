@@ -1,0 +1,33 @@
+{
+  "_source": "src/app/globals.css de laserit.fr (bloc @theme), relevé le 2026-09-30",
+  "tokens": {
+    "--color-ink": "light-dark(#f6f2ea, #0c0a09)",
+    "--color-ink-soft": "light-dark(#fbf9f4, #151210)",
+    "--color-ink-raised": "light-dark(#ffffff, #1e1a17)",
+    "--color-paper": "#f5f1e8",
+    "--color-paper-dim": "#e6e0d3",
+    "--color-text": "light-dark(#17130f, #f5f1e8)",
+    "--color-text-muted": "light-dark(#57504a, #a89e91)",
+    "--color-text-faint": "light-dark(#776e64, #6f665c)",
+    "--color-ember": "light-dark(#c2410c, #ff5a1f)",
+    "--color-ember-soft": "light-dark(#9a3412, #ff8a5c)",
+    "--color-ember-deep": "light-dark(#7c2d12, #c23c0d)",
+    "--color-on-ember": "light-dark(#fff7ed, #0c0a09)",
+    "--color-incandescent": "light-dark(#f97316, #ffe0a3)",
+    "--color-incandescent-halo": "light-dark(#fb923c, #ff6a1f)",
+    "--color-jade": "light-dark(#157f52, #3fb984)",
+    "--color-on-jade": "light-dark(#f0fdf4, #0c0a09)",
+    "--color-amber": "light-dark(#8a6110, #e8b62c)",
+    "--color-rust": "light-dark(#b23c14, #c4491f)",
+    "--color-rule": "light-dark(#e2dbcd, #2a2421)",
+    "--color-rule-strong": "light-dark(#cdc4b4, #3d3531)",
+    "--color-draft": "light-dark(#0c0a09, #f5f1e8)",
+    "--color-glow-a": "light-dark(#ffffff, #1a1512)",
+    "--color-glow-b": "light-dark(#f3ebdd, #17110e)",
+    "--font-display": "var(--font-display-loaded), 'Segoe UI', system-ui, sans-serif",
+    "--font-mono": "var(--font-mono-loaded), 'Cascadia Code', ui-monospace, monospace",
+    "--radius-card": "14px",
+    "--radius-pill": "999px"
+  },
+  "fonts": ["Space_Grotesk", "JetBrains_Mono"]
+}
