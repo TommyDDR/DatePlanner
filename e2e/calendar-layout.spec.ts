@@ -4,8 +4,9 @@ import { dayButton, dayFromToday, db, resetDatabase, signInAs } from './helpers'
 
 /**
  * Disposition du calendrier : deux mois pour proposer des jours, un ou deux
- * pour répondre selon les jours proposés ; des cases carrées, des grilles à
- * leur taille et centrées, quelle que soit la largeur disponible.
+ * pour répondre selon les jours proposés, un seul sur téléphone ; des cases
+ * carrées, des grilles à leur taille et centrées, quelle que soit la largeur
+ * disponible.
  */
 
 test.beforeAll(resetDatabase);
@@ -82,17 +83,63 @@ test('création : deux mois consécutifs, chaque jour une seule fois', async ({ 
   await context.close();
 });
 
-test('création sur téléphone : les deux mois l’un sous l’autre, sans défilement horizontal', async ({ browser, baseURL }) => {
+test('création sur téléphone : un seul mois, sans défilement horizontal', async ({ browser, baseURL }) => {
   const user = await db.user.create({ data: { email: `mobile-${Date.now()}@exemple.test`, displayName: 'Camille' } });
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await signInAs(context, user.id, baseURL!);
   const page = await context.newPage();
   await page.goto('/nouveau');
-  const [first, second] = [page.getByRole('grid').nth(0), page.getByRole('grid').nth(1)];
-  expect((await second.boundingBox())!.y).toBeGreaterThan((await first.boundingBox())!.y + 100);
-  await expectProportions(page, dayOfMonthFromNow(1, 10), second);
+  await expect(page.getByRole('grid')).toHaveCount(1);
+  expect(await gridNames(page)).toEqual([`Jours proposés, ${monthTitle(dayOfMonthFromNow(0, 1))}`]);
+  await expect(page.getByRole('button', { name: new RegExp(`^${monthTitle(dayOfMonthFromNow(0, 1))}, choisir`) })).toBeVisible();
+  await expectProportions(page, dayOfMonthFromNow(0, 10), page.getByRole('grid'));
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
+
+  // Les flèches vont d'un mois à l'autre, comme un calendrier d'un mois.
+  await page.getByRole('button', { name: 'Mois suivant' }).click();
+  expect(await gridNames(page)).toEqual([`Jours proposés, ${monthTitle(dayOfMonthFromNow(1, 1))}`]);
+  await context.close();
+});
+
+test('réponse sur téléphone : un mois à la fois, les mois concernés signalés', async ({ browser }) => {
+  const publicId = await createPoll([dayOfMonthFromNow(1, 10), dayOfMonthFromNow(2, 5)]);
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  await page.goto(`/s/${publicId}`);
+  await expect(page.getByRole('grid')).toHaveCount(1);
+  expect(await gridNames(page)).toEqual([`Vos disponibilités, ${monthTitle(dayOfMonthFromNow(1, 1))}`]);
+  const chips = page.locator('[data-marked-month]');
+  await expect(chips).toHaveCount(2);
+  await chips.last().click();
+  expect(await gridNames(page)).toEqual([`Vos disponibilités, ${monthTitle(dayOfMonthFromNow(2, 1))}`]);
+  await expect(dayButton(page, dayOfMonthFromNow(2, 5))).toBeVisible();
+  await context.close();
+});
+
+test('un écran qui rétrécit passe à un mois, puis revient à deux', async ({ page }) => {
+  const publicId = await createPoll([dayOfMonthFromNow(1, 10), dayOfMonthFromNow(2, 5)]);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`/s/${publicId}`);
+  await expect(page.getByRole('grid')).toHaveCount(2);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('grid')).toHaveCount(1);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(page.getByRole('grid')).toHaveCount(2);
+  expect(await gridNames(page)).toEqual([
+    `Vos disponibilités, ${monthTitle(dayOfMonthFromNow(1, 1))}`,
+    `Vos disponibilités, ${monthTitle(dayOfMonthFromNow(2, 1))}`,
+  ]);
+});
+
+test('avant tout script, un téléphone ne voit pas deux mois empilés', async ({ browser }) => {
+  const publicId = await createPoll([dayOfMonthFromNow(1, 10), dayOfMonthFromNow(2, 5)]);
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, javaScriptEnabled: false });
+  const page = await context.newPage();
+  await page.goto(`/s/${publicId}`);
+  // Le rendu serveur porte les deux grilles ; la seconde reste masquée.
+  await expect(page.getByRole('grid', { includeHidden: true })).toHaveCount(2);
+  await expect(page.getByRole('grid')).toHaveCount(1);
   await context.close();
 });
 

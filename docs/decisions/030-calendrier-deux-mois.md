@@ -8,7 +8,7 @@ _Source : évolution après la version 0.1.0._
 
 À deux mois, chaque grille ne rend que ses propres jours ; les cases des jours voisins restent, vides, pour garder six rangées. Une colonne ou une semaine n'avance que les jours de sa grille, et ses boutons portent le nom du mois. Les mois signalés au-dessus du calendrier ne s'affichent que s'il y en a plus que de mois montrés.
 
-Chaque grille est plafonnée à 21rem (1,75rem de numéros de semaine, sept cases d'au plus 2,75rem) et centrée ; le cadre du calendrier se limite à la largeur de ses grilles. Deux mois passent l'un sous l'autre sous 15rem par mois.
+Chaque grille est plafonnée à 21rem (1,75rem de numéros de semaine, sept cases d'au plus 2,75rem) et centrée ; le cadre du calendrier se limite à la largeur de ses grilles. Deux mois passent l'un sous l'autre sous 15rem par mois ; la décision 033 remplace cet empilement par un seul mois.
 
 ## Pourquoi
 
