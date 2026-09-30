@@ -1,0 +1,75 @@
+# Contrat — actions serveur
+
+Toutes les mutations passent par des Server Actions. Chaque action : valide son entrée avec
+un schéma Zod partagé avec le formulaire, vérifie le droit **dans la requête d'écriture**,
+consomme ses seaux de limitation (R11), publie l'événement « sondage changé » **après** la
+transaction, met les emails en file **dans** la transaction.
+
+## Forme des résultats
+
+```ts
+type ActionResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: ActionError };
+
+type ActionError =
+  | { code: 'VALIDATION'; fields: Record<string, string> } // message par champ, en français
+  | { code: 'NOT_FOUND' }                                  // absent OU refusé : indiscernable
+  | { code: 'RATE_LIMITED'; retryAfterSeconds: number }
+  | { code: 'POLL_CLOSED' }
+  | { code: 'ACCOUNT_REQUIRED' }
+  | { code: 'DAY_HAS_VOTES'; day: string }
+  | { code: 'LAST_DAY' }
+  | { code: 'AUTH_FAILED' }                                // message de connexion unique
+  | { code: 'REAUTH_REQUIRED' };
+```
+
+Types communs : `Day` = `AAAA-MM-JJ` ; `PublicId` = 22 caractères `[A-Za-z0-9_-]`.
+
+## Comptes
+
+| Action | Entrée | Succès | Erreurs | FR |
+|---|---|---|---|---|
+| `register` | `email`, `displayName` (1–60), `password` (règle FR-002), `next?` | session ouverte, redirection vers `next` sûr ou `/mes-sondages` | `VALIDATION`, `RATE_LIMITED`, `AUTH_FAILED` (adresse déjà inscrite et mot de passe faux) | FR-001, FR-002, FR-005 |
+| `login` | `email`, `password`, `next?` | session ouverte, redirection | `AUTH_FAILED`, `RATE_LIMITED` | FR-005 |
+| `logout` | — | session fermée, redirection `/` | — | |
+| `requestPasswordReset` | `email` | toujours `ok` ; email mis en file si le compte existe | `RATE_LIMITED` | FR-004 |
+| `resetPassword` | `token`, `password` | mot de passe changé, `emailProvedAt` posé, toutes les sessions fermées puis une nouvelle ouverte | `VALIDATION`, `NOT_FOUND` (jeton invalide, expiré ou consommé) | FR-004 |
+| `updateDisplayName` | `displayName` | nom mis à jour | `VALIDATION` | |
+| `deleteAccount` | `password?` | compte et données supprimés, session fermée | `AUTH_FAILED` (mot de passe faux), `REAUTH_REQUIRED` (compte sans mot de passe et connexion de plus de 10 min) | FR-006 |
+
+## Sondages (créateur)
+
+Toutes exigent une session ; toute écriture porte `WHERE owner_id = :session` et répond
+`NOT_FOUND` si aucune ligne n'est touchée (FR-028).
+
+| Action | Entrée | Succès | Erreurs | FR |
+|---|---|---|---|---|
+| `createPoll` | `title` (1–120), `description?` (≤ 2000), `days: Day[]` (1–366, uniques, ≥ aujourd'hui Paris), `requireAccount`, `notifyOwner` | `{ publicId }` | `VALIDATION`, `RATE_LIMITED` | FR-007–012, FR-040, FR-041 |
+| `updatePollDetails` | `publicId`, `title`, `description?` | publié aux abonnés | `VALIDATION`, `NOT_FOUND` | FR-025 |
+| `addPollDays` | `publicId`, `days: Day[]` (≥ aujourd'hui, total ≤ 366) | jours ajoutés, doublons ignorés | `VALIDATION`, `NOT_FOUND` | FR-027 |
+| `removePollDay` | `publicId`, `day` | jour retiré | `DAY_HAS_VOTES`, `LAST_DAY`, `NOT_FOUND` | FR-027 |
+| `setPollOptions` | `publicId`, `requireAccount?`, `notifyOwner?` | options enregistrées | `NOT_FOUND` | FR-040, FR-041 |
+| `closePoll` | `publicId`, `retainedDay?: Day` (jour du sondage) | `CLOSED` ; annonce FR-042 mise en file si `retainedDay` | `VALIDATION`, `NOT_FOUND` (dont déjà clos) | FR-026, FR-042 |
+| `setRetainedDay` | `publicId`, `retainedDay: Day \| null` | date changée ; annonce si nouvelle date non nulle | `VALIDATION` (jour étranger au sondage), `NOT_FOUND` (sondage absent ou encore ouvert) | FR-026, FR-042 |
+| `reopenPoll` | `publicId` | `OPEN`, date retenue effacée | `NOT_FOUND` | FR-026 |
+| `deleteResponse` | `publicId`, `responseId` | réponse et votes supprimés | `NOT_FOUND` | FR-039 |
+| `deletePoll` | `publicId` | sondage supprimé, redirection `/mes-sondages` | `NOT_FOUND` | FR-025 |
+
+## Réponses (répondant)
+
+| Action | Entrée | Succès | Erreurs | FR |
+|---|---|---|---|---|
+| `submitResponse` | `publicId`, `days: Day[]` (≥ 1), `pseudonym?` (1–50, exigé sans session) | réponse créée ou mise à jour — connecté : réponse du compte seulement (la réponse anonyme de l'appareil est ignorée) ; sans session : réponse de l'appareil ; cookie `dp_appareil` posé s'il manquait (sans session) ; résumé du créateur programmé si création | `VALIDATION` (jour non proposé ou passé ⇒ refus total), `POLL_CLOSED`, `ACCOUNT_REQUIRED`, `RATE_LIMITED`, `NOT_FOUND` | FR-013–019, FR-040, FR-041 |
+| `withdrawResponse` | `publicId` | connecté : réponse du compte supprimée ; sans session : réponse de l'appareil supprimée (y compris quand le compte est désormais exigé) | `POLL_CLOSED`, `NOT_FOUND` | FR-019 |
+
+Garanties : un pseudo n'est jamais accepté d'une session connectée (le nom vient du compte) ;
+la revérification de chaque jour a lieu dans la transaction qui écrit les votes (FR-016) ;
+deux soumissions simultanées du même répondant n'en créent qu'une (contrainte d'unicité, puis
+mise à jour).
+
+## Notifications
+
+| Action | Entrée | Succès | Erreurs | FR |
+|---|---|---|---|---|
+| `disableOwnerDigest` | `token` (lien signé) | `notifyOwner = false` pour ce sondage ; résumé en attente annulé | `NOT_FOUND` (signature invalide ou sondage supprimé) | FR-041 |

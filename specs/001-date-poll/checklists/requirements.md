@@ -31,8 +31,10 @@
 
 ## Notes
 
-- 3 marqueurs [NEEDS CLARIFICATION] restent ouverts : FR-019 (modification
-  d'une réponse), FR-026 (clôture et date retenue), FR-027 (modification des
-  jours après votes). À trancher avant `/speckit-plan`.
+- Les 3 marqueurs [NEEDS CLARIFICATION] initiaux (FR-019, FR-026, FR-027) ont
+  été tranchés à la séance de clarification du 2026-09-30 ; les décisions
+  suivantes (notifications, modération, réponse anonyme d'un utilisateur
+  connecté, délai du premier résumé) figurent dans la section Clarifications
+  de la spec.
 - FR-035 cite HTTPS et le sous-domaine : exigence d'exploitation posée par le
   demandeur, conservée volontairement.

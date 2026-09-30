@@ -35,6 +35,8 @@
 - Q: Après les premiers votes, le créateur peut-il changer les jours proposés, et que deviennent les votes d'un jour retiré ? → A: Ajout de jours toujours possible ; retrait seulement d'un jour sans aucun vote.
 - Q: Le créateur peut-il supprimer la réponse d'un participant ? → A: Oui, après confirmation ; il peut aussi exiger, sondage par sondage, que les répondants soient connectés.
 - Q: Le service doit-il envoyer des emails quand un sondage bouge ? → A: Oui : au créateur pour les nouvelles réponses (regroupées, option du sondage activée par défaut) ; aux répondants connectés à l'annonce de la date retenue.
+- Q: Un répondant connecté dont l'appareil porte déjà une réponse anonyme au même sondage, que voit-il ? → A: Connecté, il voit le sondage avec son compte ; déconnecté, il le voit en mode anonyme avec la réponse de son appareil.
+- Q: Quand part le premier résumé des nouvelles réponses ? → A: 15 minutes après la première nouvelle réponse, puis au plus un toutes les 30 minutes.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -170,10 +172,17 @@ l'utilisateur est connecté et peut créer un sondage.
 1. **Given** un visiteur sans compte, **When** il se connecte avec Google,
    **Then** un compte est créé à partir de son identité Google (nom et adresse
    email vérifiée) et il est connecté.
-2. **Given** un compte local existant avec la même adresse email, **When** son
-   titulaire se connecte avec Google pour la première fois, **Then** l'identité
-   Google est rattachée à ce compte existant, sans créer de doublon.
-3. **Given** un visiteur qui annule sur la page de Google, **When** il revient
+2. **Given** un compte local existant avec la même adresse email, déjà prouvée
+   (un lien envoyé à cette adresse a été utilisé), **When** son titulaire se
+   connecte avec Google pour la première fois, **Then** l'identité Google est
+   rattachée à ce compte existant, sans créer de doublon, et son mot de passe
+   reste valable.
+3. **Given** un compte local existant avec la même adresse email, jamais
+   prouvée, **When** quelqu'un se connecte avec le compte Google de cette
+   adresse, **Then** l'identité Google est rattachée au compte, son mot de passe
+   est effacé et toutes ses autres sessions sont fermées ; le titulaire peut en
+   redéfinir un par « mot de passe oublié ».
+4. **Given** un visiteur qui annule sur la page de Google, **When** il revient
    sur le service, **Then** il n'est pas connecté et un message neutre
    l'indique.
 
@@ -312,8 +321,14 @@ en sombre ; basculer en clair, recharger : il reste clair.
 - Répondant sans compte qui revient depuis un autre appareil, ou après avoir
   effacé les données de son navigateur : il n'est pas reconnu ; une nouvelle
   réponse de sa part s'ajoute à l'ancienne.
-- Répondant sans compte qui se connecte ensuite : sa réponse anonyme reste
-  anonyme ; s'il répond à nouveau connecté, c'est une seconde réponse.
+- Répondant sans compte qui se connecte ensuite sur le même appareil : connecté,
+  il voit le sondage avec son compte (sa réponse anonyme n'y est ni reprise ni
+  modifiable, et répondre sous son compte crée une seconde réponse) ; déconnecté,
+  il retrouve le sondage en mode anonyme, avec la réponse anonyme de cet
+  appareil.
+- Compte local dont l'adresse n'a jamais été prouvée, rattaché ensuite à Google :
+  son mot de passe est effacé et ses autres sessions fermées. Sans cela, un
+  tiers qui aurait inscrit l'adresse d'autrui garderait l'accès au compte.
 - Pseudo ou titre contenant du balisage ou du code : affiché tel quel comme du
   texte, jamais interprété.
 - Pseudo trop long : limité à 50 caractères, espaces de début et de fin retirés.
@@ -442,8 +457,9 @@ en sombre ; basculer en clair, recharger : il reste clair.
 **Notifications par email**
 
 - **FR-041**: Le créateur DOIT recevoir un email signalant les nouvelles
-  réponses à son sondage, regroupées : au plus un email par sondage toutes les
-  30 minutes, listant les répondants arrivés depuis le précédent. Cette option
+  réponses à son sondage, regroupées : le premier email part 15 minutes après la
+  première nouvelle réponse, puis au plus un email par sondage toutes les
+  30 minutes, chacun listant les répondants arrivés depuis le précédent. Cette option
   du sondage est activée par défaut et désactivable par le créateur, depuis le
   sondage ou depuis un lien présent dans chaque email.
 - **FR-042**: Quand le créateur désigne ou change la date retenue, chaque
@@ -479,8 +495,10 @@ en sombre ; basculer en clair, recharger : il reste clair.
   votes) et leur durée de conservation.
 - **FR-037**: Les pages de sondage ne DOIVENT pas être indexées par les moteurs
   de recherche.
-- **FR-038**: Le système DOIT limiter le nombre de créations de comptes, de
-  sondages et de réponses par origine sur une période donnée.
+- **FR-038**: Le système DOIT limiter les créations par origine : au plus
+  5 créations de compte par heure et par adresse réseau, 20 sondages par heure
+  et par compte, 30 réponses par heure et par adresse réseau (dont 10 sur un
+  même sondage) ; au-delà, l'action est refusée avec le délai d'attente.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -550,9 +568,11 @@ en sombre ; basculer en clair, recharger : il reste clair.
 - **Conservation** : un sondage est supprimé automatiquement 12 mois après son
   dernier jour proposé ; un compte sans activité depuis 3 ans est supprimé après
   avertissement par email.
-- **Cookies** : seuls des cookies strictement nécessaires (session, choix du
-  thème) sont utilisés ; pas de mesure d'audience tierce, donc pas de bandeau de
-  consentement.
+- **Cookies** : seuls des cookies strictement nécessaires sont utilisés — la
+  session, la reconnaissance de l'appareil d'un répondant sans compte et
+  l'aller-retour de la connexion Google ; le choix du thème est gardé dans le
+  navigateur, hors cookie. Pas de mesure d'audience tierce, donc pas de bandeau
+  de consentement.
 - **Référence visuelle et fonctionnelle** : le calendrier et l'identité visuelle
   du site laserit.fr servent de modèle ; ils sont repris dans ce service, sans
   dépendance à ce site.
