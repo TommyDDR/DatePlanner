@@ -64,7 +64,7 @@ export function ResponseForm(props: Props) {
           Le créateur de ce sondage demande de répondre avec un compte.{' '}
           <Link
             href={`/connexion?suite=${encodeURIComponent(`/s/${publicId}`)}`}
-            className="font-medium text-[var(--color-ember)] underline-offset-4 hover:underline"
+            className="font-medium text-[var(--color-ember)] underline underline-offset-4"
           >
             Se connecter pour répondre
           </Link>
@@ -154,11 +154,11 @@ function AnswerForm({ publicId, pollDays, today, user, existing, badges, markedM
               aria-describedby={pseudonymError ? 'pseudonym-erreur' : 'pseudonym-aide'}
               className={`field max-w-sm ${pseudonymError ? 'field-error' : ''}`}
             />
-            <p id="pseudonym-aide" className="mt-1.5 text-sm text-[var(--color-text-faint)]">
+            <p id="pseudonym-aide" className="mt-1.5 text-sm text-[var(--color-text-subtle)]">
               Visible par toutes les personnes qui ont le lien.{' '}
               <Link
                 href={`/connexion?suite=${encodeURIComponent(`/s/${publicId}`)}`}
-                className="text-[var(--color-ember)] underline-offset-4 hover:underline"
+                className="text-[var(--color-ember)] underline underline-offset-4"
               >
                 Se connecter pour répondre
               </Link>
@@ -169,7 +169,7 @@ function AnswerForm({ publicId, pollDays, today, user, existing, badges, markedM
 
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-1 text-sm font-medium">Vos disponibilités</legend>
-          <p className="text-sm text-[var(--color-text-faint)]">
+          <p className="text-sm text-[var(--color-text-subtle)]">
             Cochez les jours qui vous conviennent. Les pastilles comptent les votes déjà reçus ; survolez un jour pour
             voir qui a voté.
           </p>

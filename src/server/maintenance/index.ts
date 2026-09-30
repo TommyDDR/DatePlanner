@@ -3,6 +3,7 @@ import { purgeExpiredSessions, purgeExpiredTokens } from '@/server/auth/session'
 import { prisma } from '@/server/db/client';
 import { flushOutbox, purgeOldEmails } from '@/server/notifications/outbox';
 import { purgeExpiredHits } from '@/server/ratelimit';
+import { deleteExpiredPolls, deleteWarnedAccounts, warnInactiveAccounts } from './retention';
 
 /**
  * Passage de maintenance (research.md R15), appelé toutes les dix minutes par
@@ -14,10 +15,19 @@ import { purgeExpiredHits } from '@/server/ratelimit';
 export type MaintenanceReport = {
   sent: number;
   failed: number;
+  retention: { polls: number; warned: number; accounts: number };
   purged: { sessions: number; tokens: number; rateLimitHits: number; emails: number };
 };
 
 export async function runMaintenance(now = new Date()): Promise<MaintenanceReport> {
+  // La conservation passe AVANT l'envoi : les avertissements qu'elle met en
+  // file partent dans ce même passage, et un sondage supprimé a déjà vu ses
+  // emails en attente annulés.
+  const retention = {
+    polls: await deleteExpiredPolls(now),
+    accounts: await deleteWarnedAccounts(now),
+    warned: await warnInactiveAccounts(now),
+  };
   const { sent, failed } = await flushOutbox();
   const purged = {
     sessions: await purgeExpiredSessions(now),
@@ -34,5 +44,5 @@ export async function runMaintenance(now = new Date()): Promise<MaintenanceRepor
     update: { lastRunAt: now },
   });
 
-  return { sent, failed, purged };
+  return { sent, failed, retention, purged };
 }

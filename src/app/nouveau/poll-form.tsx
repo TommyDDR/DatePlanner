@@ -48,7 +48,7 @@ export function PollForm({ today }: { today: string }) {
         </div>
         <div>
           <label htmlFor="description" className="mb-1.5 block text-sm font-medium">
-            Description <span className="font-normal text-[var(--color-text-faint)]">(facultative)</span>
+            Description <span className="font-normal text-[var(--color-text-subtle)]">(facultative)</span>
           </label>
           <textarea
             id="description"
@@ -61,7 +61,7 @@ export function PollForm({ today }: { today: string }) {
             aria-describedby="description-compte"
             className={`field resize-y ${errors.description ? 'field-error' : ''}`}
           />
-          <p id="description-compte" className="mt-1 text-right text-xs text-[var(--color-text-faint)] tabular-nums">
+          <p id="description-compte" className="mt-1 text-right text-xs text-[var(--color-text-subtle)] tabular-nums">
             {description.length} / {POLL_LIMITS.descriptionMax}
           </p>
           <FieldError id="description-erreur" message={errors.description} />
@@ -83,7 +83,7 @@ export function PollForm({ today }: { today: string }) {
           onChange={setMarks}
         />
         {tooMany ? (
-          <p className="text-sm text-[var(--color-rust)]">Un sondage propose au plus {POLL_LIMITS.maxDays} jours.</p>
+          <p className="text-sm text-[var(--color-danger)]">Un sondage propose au plus {POLL_LIMITS.maxDays} jours.</p>
         ) : null}
         <FieldError id="jours-erreur" message={errors.days} />
       </fieldset>
@@ -99,7 +99,7 @@ export function PollForm({ today }: { today: string }) {
           />
           <span>
             Répondants connectés uniquement
-            <span className="block text-sm text-[var(--color-text-faint)]">
+            <span className="block text-sm text-[var(--color-text-subtle)]">
               Sans cette option, on peut répondre sous un simple pseudo.
             </span>
           </span>
@@ -113,7 +113,7 @@ export function PollForm({ today }: { today: string }) {
           />
           <span>
             Me prévenir des nouvelles réponses par email
-            <span className="block text-sm text-[var(--color-text-faint)]">
+            <span className="block text-sm text-[var(--color-text-subtle)]">
               Au plus un email toutes les trente minutes, qui les regroupe.
             </span>
           </span>

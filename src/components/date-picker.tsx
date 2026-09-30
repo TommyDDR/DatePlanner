@@ -613,7 +613,7 @@ export function DatePicker({
                 key={index}
                 role="columnheader"
                 aria-label={weekday.long}
-                className="grid h-8 place-items-center font-mono text-[0.7rem] uppercase text-[var(--color-text-faint)]"
+                className="grid h-8 place-items-center font-mono text-[0.7rem] uppercase text-[var(--color-text-subtle)]"
               >
                 {weekday.short}
               </span>
@@ -630,12 +630,12 @@ export function DatePicker({
                   onClick={() => commit(cycleGroup(marks, week.days, count, rules))}
                   aria-label={`Faire avancer la semaine ${week.week}`}
                   title={`Toute la semaine ${week.week}`}
-                  className="grid h-8 w-7 place-items-center rounded-full font-mono text-[0.6rem] text-[var(--color-text-faint)] transition-colors hover:bg-[var(--color-ink-raised)] hover:text-[var(--color-ember)]"
+                  className="grid h-8 w-7 place-items-center rounded-full font-mono text-[0.6rem] text-[var(--color-text-subtle)] transition-colors hover:bg-[var(--color-ink-raised)] hover:text-[var(--color-ember)]"
                 >
                   {week.week}
                 </button>
               ) : (
-                <span className="font-mono text-[0.6rem] text-[var(--color-text-faint)]">{week.week}</span>
+                <span className="font-mono text-[0.6rem] text-[var(--color-text-subtle)]">{week.week}</span>
               )}
             </span>
             {week.days.map((day, column) => {
@@ -779,7 +779,10 @@ export function DatePicker({
           ) : null}
           {disabledLabel && disabled.length > 0 ? (
             <span className="label-tech inline-flex items-center gap-1.5">
-              <span aria-hidden="true" className="text-[var(--color-rust)] line-through decoration-2">
+              <span
+                aria-hidden="true"
+                className="text-[var(--color-danger)] line-through decoration-[var(--color-rust)] decoration-2"
+              >
                 00
               </span>
               {disabledLabel}
@@ -1021,7 +1024,7 @@ function dayClass(state: {
 
   if (!state.selectable) {
     parts.push('cursor-not-allowed text-[var(--color-text-faint)]');
-    if (!state.forbidden) parts.push('opacity-50');
+    if (!state.forbidden || state.outside) parts.push('opacity-50');
   } else if (state.matched) {
     parts.push(
       'cursor-pointer bg-[var(--color-jade)] font-semibold text-[var(--color-on-jade)] shadow-[0_0_14px_-4px_var(--color-jade)]',
@@ -1032,16 +1035,16 @@ function dayClass(state: {
     );
   } else if (state.tone === 'blocked') {
     parts.push(
-      `cursor-pointer font-semibold text-[var(--color-rust)] shadow-[inset_0_0_0_1.5px_var(--color-rust)] ${BLOCKED_HATCH}`,
+      `cursor-pointer font-semibold text-[var(--color-danger)] shadow-[inset_0_0_0_1.5px_var(--color-rust)] ${BLOCKED_HATCH}`,
     );
   } else {
-    parts.push(
-      'cursor-pointer text-[var(--color-text)] hover:bg-[var(--color-ink-raised)] hover:text-[var(--color-ember)]',
-    );
+    // Un jour d'un mois voisin se distingue par un texte plus discret, pas par
+    // de la transparence : il reste un bouton actif, tenu au contraste (SC-009).
+    const tone = state.outside && !state.between ? 'text-[var(--color-text-subtle)]' : 'text-[var(--color-text)]';
+    parts.push(`cursor-pointer ${tone} hover:bg-[var(--color-ink-raised)] hover:text-[var(--color-ember)]`);
   }
 
   if (state.between && state.tone === null && state.selectable) parts.push(RANGE_TINT);
-  if (state.outside && state.tone === null && !state.between) parts.push('opacity-45');
   if (state.isHighlighted && state.tone === null && state.selectable) {
     parts.push('shadow-[inset_0_0_0_1.5px_var(--color-ember)] font-medium');
   }
@@ -1085,7 +1088,7 @@ function VotersTooltip({ id, day, badge, column }: { id: string; day: Day; badge
         ))}
       </ul>
       {others > 0 ? (
-        <p className="mt-1 text-[var(--color-text-faint)]">
+        <p className="mt-1 text-[var(--color-text-subtle)]">
           et {others} autre{others > 1 ? 's' : ''}
         </p>
       ) : null}
