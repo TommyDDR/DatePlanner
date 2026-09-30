@@ -1,28 +1,27 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useActionState, useMemo, useState } from 'react';
 import { ActionForm, ConfirmSubmit } from '@/components/action-form';
 import { CopyLink } from '@/components/copy-link';
-import { DatePicker, type MarkState } from '@/components/date-picker';
-import { FieldError, SubmitButton } from '@/components/form-parts';
+import { DatePicker, type DayBadge, type MarkState } from '@/components/date-picker';
+import { FieldError, FormAlert, SubmitButton } from '@/components/form-parts';
 import { POLL_LIMITS } from '@/config/limits';
-import type { Marks } from '@/lib/date-picker';
-import { fieldError } from '@/lib/form-state';
+import { draftChanges, draftFromMarks, draftMarks, EMPTY_DRAFT, lockedDays, type DaysDraft, type SavedDays } from '@/lib/days-draft';
+import { fieldError, type FormState } from '@/lib/form-state';
 import { formatLongDay } from '@/lib/paris-day';
-import { voteCountLabel } from '@/lib/availability';
 import {
-  addPollDaysAction,
+  changePollDaysAction,
   closePollAction,
   deletePollAction,
   deleteResponseAction,
-  removePollDayAction,
   reopenPollAction,
   setPollOptionsAction,
   setRetainedDayAction,
   updatePollDetailsAction,
 } from '../actions';
 
-const NEW_DAYS: readonly MarkState[] = [{ label: 'à ajouter', plural: 'à ajouter', tone: 'fill', name: 'days' }];
+/** Un seul état : « proposé ». Les champs partent du brouillon, pas du calendrier. */
+const PROPOSED: readonly MarkState[] = [{ label: 'proposé', plural: 'proposés', tone: 'fill' }];
 
 type Props = {
   publicId: string;
@@ -32,7 +31,8 @@ type Props = {
   status: 'OPEN' | 'CLOSED';
   retainedDay: string | null;
   days: string[];
-  votesByDay: Record<string, number>;
+  /** Pastilles de votes, par jour : un jour voté ne se retire plus. */
+  badges: Record<string, DayBadge>;
   responses: Array<{ id: string; name: string; account: boolean }>;
   requireAccount: boolean;
   notifyOwner: boolean;
@@ -103,8 +103,7 @@ export function OwnerPanel(props: Props) {
         </ActionForm>
       </div>
 
-      {/* Les jours changent : la section repart de zéro, sélection comprise. */}
-      <DaysSection key={props.days.join(',')} {...props} />
+      <DaysSection {...props} />
 
       <div className={SECTION}>
         <h3 className={TITLE}>Options</h3>
@@ -244,67 +243,136 @@ function ClosingSection({ publicId, status, retainedDay, days }: Props) {
   );
 }
 
-function DaysSection({ publicId, days, votesByDay, retainedDay, today }: Props) {
-  const hidden = <input type="hidden" name="publicId" value={publicId} />;
-  const [marks, setMarks] = useState<Marks>({});
-  const existing = useMemo(() => days.filter((day) => day >= today), [days, today]);
-
+/**
+ * Les jours proposés, sur le seul calendrier (FR-027, décision 031) : un jour
+ * orangé est proposé et sans vote - un clic le retire -, un jour gris a déjà
+ * reçu un vote et reste, un jour libre s'ajoute d'un clic. Rien ne part avant
+ * « Enregistrer les jours », qui envoie ajouts et retraits ensemble.
+ */
+function DaysSection(props: Props) {
+  const [state, action] = useActionState(changePollDaysAction, null);
   return (
     <div className={SECTION}>
       <h3 className={TITLE}>Jours proposés</h3>
-      <ul className="flex flex-col gap-1">
-        {days.map((day) => {
-          const votes = votesByDay[day] ?? 0;
-          const removable = votes === 0 && day !== retainedDay && days.length > 1;
-          return (
-            <li key={day} className="flex flex-wrap items-center justify-between gap-2">
-              <span className="first-letter:uppercase">
-                {formatLongDay(day)}
-                <span className="ml-2 text-sm text-[var(--color-text-subtle)]">{votes > 0 ? voteCountLabel(votes) : 'aucun vote'}</span>
-              </span>
-              {removable ? (
-                <ActionForm action={removePollDayAction} className="flex items-center gap-2">
-                  {() => (
-                    <>
-                      {hidden}
-                      <input type="hidden" name="day" value={day} />
-                      <SubmitButton className="text-sm text-[var(--color-danger)] underline-offset-4 hover:underline">
-                        <span>
-                          Retirer<span className="sr-only"> le {formatLongDay(day)}</span>
-                        </span>
-                      </SubmitButton>
-                    </>
-                  )}
-                </ActionForm>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
-      <ActionForm action={addPollDaysAction} success="Jours ajoutés.">
-        {(state) => (
-          <>
-            {hidden}
-            <p className="text-sm font-medium">Ajouter des jours</p>
-            <DatePicker
-              mode="multiple"
-              months={2}
-              label="Jours à ajouter"
-              today={today}
-              min={today}
-              disabled={existing}
-              disabledLabel="déjà proposé"
-              states={NEW_DAYS}
-              value={marks}
-              onChange={setMarks}
-            />
-            <FieldError id="ajout-erreur" message={fieldError(state, 'days')} />
-            <div>
-              <SubmitButton className="btn-ghost">Ajouter ces jours</SubmitButton>
-            </div>
-          </>
-        )}
-      </ActionForm>
+      <p className="text-sm text-[var(--color-text-subtle)]">
+        Touchez un jour libre pour l’ajouter, un jour orangé pour le retirer. Les jours grisés ont déjà reçu un vote :
+        ils restent.
+      </p>
+      <form action={action} className="flex flex-col gap-3">
+        {/* Les jours enregistrés changent : le brouillon repart de zéro. */}
+        <DaysEditor key={props.days.join(',')} {...props} state={state} />
+      </form>
     </div>
   );
 }
+
+function DaysEditor({ publicId, days, badges, retainedDay, today, state }: Props & { state: FormState }) {
+  const [draft, setDraft] = useState<DaysDraft>(EMPTY_DRAFT);
+  // Relu à chaque mise à jour en direct : un vote arrivé pendant qu'on
+  // prépare ses changements verrouille aussitôt son jour.
+  const saved = useMemo<SavedDays>(
+    () => ({ days, voted: new Set(Object.keys(badges).filter((day) => badges[day]!.count > 0)), retainedDay }),
+    [days, badges, retainedDay],
+  );
+  const locked = useMemo(() => lockedDays(saved), [saved]);
+  const marks = useMemo(() => draftMarks(saved, draft), [saved, draft]);
+  const changes = draftChanges(saved, draft);
+  const dirty = changes.add.length + changes.remove.length > 0;
+  const markedMonths = [
+    ...new Set([...days, ...changes.add].filter((day) => day >= today).map((day) => day.slice(0, 7))),
+  ].sort();
+
+  return (
+    <>
+      <input type="hidden" name="publicId" value={publicId} />
+      {changes.add.map((day) => (
+        <input key={`add-${day}`} type="hidden" name="add" value={day} />
+      ))}
+      {changes.remove.map((day) => (
+        <input key={`remove-${day}`} type="hidden" name="remove" value={day} />
+      ))}
+      {/* Un retrait devancé par un vote est dit ci-dessous : l'erreur du serveur n'y ajouterait rien. */}
+      {state?.error?.code === 'DAY_HAS_VOTES' && changes.overtaken.length > 0 ? null : <FormAlert state={state} />}
+      {changes.overtaken.length > 0 ? (
+        <p
+          role="alert"
+          data-testid="retrait-devance"
+          className="rounded-[10px] border border-[color-mix(in_oklab,var(--color-rust)_45%,transparent)] bg-[color-mix(in_oklab,var(--color-rust)_8%,transparent)] px-4 py-3 text-sm"
+        >
+          {overtakenMessage(changes.overtaken)}
+        </p>
+      ) : null}
+      <DatePicker
+        mode="multiple"
+        months={2}
+        label="Jours proposés"
+        today={today}
+        min={today}
+        states={PROPOSED}
+        value={marks}
+        onChange={(next) => setDraft((previous) => draftFromMarks(next, saved, previous))}
+        locked={locked}
+        lockedLabel="déjà voté"
+        withdrawn={changes.remove}
+        withdrawnLabel="à retirer"
+        badges={badges}
+        retainedDay={retainedDay}
+        markedMonths={markedMonths}
+        initialDay={days.find((day) => day >= today) ?? null}
+        summary={
+          <p aria-live="polite" className="text-xs text-[var(--color-text-muted)]">
+            {dirty ? (
+              <>
+                {[
+                  changes.add.length > 0 ? `${dayCount(changes.add.length)} à ajouter` : null,
+                  changes.remove.length > 0 ? `${dayCount(changes.remove.length)} à retirer` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+                {' · '}
+                <button
+                  type="button"
+                  onClick={() => setDraft(EMPTY_DRAFT)}
+                  className="text-[var(--color-ember)] underline-offset-2 hover:underline"
+                >
+                  Annuler les changements
+                </button>
+              </>
+            ) : (
+              'Aucun changement'
+            )}
+          </p>
+        }
+      />
+      <FieldError id="jours-erreur" message={fieldError(state, 'days')} />
+      {changes.remaining === 0 ? (
+        <p className="text-sm text-[var(--color-danger)]">Un sondage garde au moins un jour.</p>
+      ) : null}
+      <div>
+        <SubmitButton className="btn-ghost" disabled={!dirty || changes.remaining === 0}>
+          Enregistrer les jours
+        </SubmitButton>
+      </div>
+      {state?.done && !dirty ? (
+        <p role="status" className="text-sm text-[var(--color-jade)]">
+          Jours enregistrés.
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+function dayCount(n: number): string {
+  return `${n} jour${n > 1 ? 's' : ''}`;
+}
+
+/** « Le lundi 12 octobre vient de recevoir un vote : il reste dans le sondage. » */
+function overtakenMessage(days: readonly string[]): string {
+  const names = days.map((day) => `le ${formatLongDay(day)}`);
+  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} et ${names[names.length - 1]}` : names[0]!;
+  const subject = list.charAt(0).toUpperCase() + list.slice(1);
+  return names.length > 1
+    ? `${subject} viennent de recevoir un vote : ils restent dans le sondage.`
+    : `${subject} vient de recevoir un vote : il reste dans le sondage.`;
+}
+

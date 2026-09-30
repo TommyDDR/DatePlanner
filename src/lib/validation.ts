@@ -140,9 +140,8 @@ export const updatePollDetailsSchema = z.object({
   description: descriptionSchema,
 });
 
-export const addPollDaysSchema = z.object({ publicId: publicIdSchema, days: daysSchema });
-
-export const removePollDaySchema = z.object({ publicId: publicIdSchema, day: daySchema });
+/** Les jours à ajouter et ceux à retirer, envoyés ensemble par le calendrier du créateur. */
+export const changePollDaysSchema = z.object({ publicId: publicIdSchema, add: daysSchema, remove: daysSchema });
 
 export const setPollOptionsSchema = z.object({
   publicId: publicIdSchema,

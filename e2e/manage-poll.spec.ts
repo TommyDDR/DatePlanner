@@ -53,14 +53,28 @@ test('le créateur gère son sondage de bout en bout', async ({ page }) => {
   await panel(page).getByRole('button', { name: 'Enregistrer', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Pique-nique au lac' })).toBeVisible();
 
-  // Scénario 6 : ajouter un jour.
-  await panel(page).locator(`[data-day="${dayFromToday(6)}"]`).click();
-  await panel(page).getByRole('button', { name: 'Ajouter ces jours' }).click();
-  await expect(panel(page).getByRole('button', { name: /Retirer le/ })).toHaveCount(2);
-
-  // Scénario 7 : un jour voté ne s'offre pas au retrait.
-  const votedDay = panel(page).locator('li', { hasText: '1 vote' });
-  await expect(votedDay.getByRole('button', { name: /Retirer/ })).toHaveCount(0);
+  // Scénarios 6 et 7, sur le seul calendrier : un jour voté est gris et ne
+  // bouge pas ; un jour orangé se retire, un jour libre s'ajoute, et les deux
+  // partent ensemble.
+  const panelDay = (day: string) => panel(page).locator(`[data-day="${day}"]`);
+  await expect(panel(page).getByRole('button', { name: /Retirer/ })).toHaveCount(0);
+  await expect(panelDay(dayFromToday(3))).toHaveAttribute('data-locked', '');
+  await expect(panelDay(dayFromToday(3))).toHaveAttribute('aria-disabled', 'true');
+  await expect(panelDay(dayFromToday(4))).toHaveAttribute('data-mark', 'fill');
+  await panelDay(dayFromToday(3)).click({ force: true });
+  await expect(panelDay(dayFromToday(3))).not.toHaveAttribute('data-withdrawn');
+  const save = panel(page).getByRole('button', { name: 'Enregistrer les jours' });
+  await expect(save).toBeDisabled();
+  await panelDay(dayFromToday(4)).click();
+  await expect(panelDay(dayFromToday(4))).toHaveAttribute('data-withdrawn', '');
+  await panelDay(dayFromToday(6)).click();
+  await expect(panel(page).getByText('1 jour à ajouter · 1 jour à retirer')).toBeVisible();
+  await save.click();
+  await expect(panel(page).getByText('Jours enregistrés.')).toBeVisible();
+  await expect(panelDay(dayFromToday(4))).not.toHaveAttribute('data-mark');
+  await expect(panelDay(dayFromToday(4))).not.toHaveAttribute('data-withdrawn');
+  await expect(panelDay(dayFromToday(6))).toHaveAttribute('data-mark', 'fill');
+  await expect(panel(page).getByLabel('Date retenue').locator('option')).toHaveCount(3);
 
   // Scénario 9 : répondants connectés uniquement.
   await panel(page).getByLabel('Répondants connectés uniquement').check();
@@ -73,13 +87,13 @@ test('le créateur gère son sondage de bout en bout', async ({ page }) => {
   await expect(panel(page).getByText('Aucune réponse pour l’instant.')).toBeVisible();
 
   // Scénario 4 : clore en désignant la date retenue.
-  await panel(page).getByLabel('Date retenue').selectOption(dayFromToday(4));
+  await panel(page).getByLabel('Date retenue').selectOption(dayFromToday(6));
   await panel(page).getByRole('button', { name: 'Clore le sondage' }).click();
   const banner = page.getByTestId('bandeau-clos');
   await expect(banner).toBeVisible();
   await expect(banner).toContainText('Date retenue');
   await expect(page.getByRole('button', { name: 'Valider ma réponse' })).toHaveCount(0);
-  await expect(dayButton(page, dayFromToday(4)).first()).toHaveAttribute('data-retained', '');
+  await expect(dayButton(page, dayFromToday(6)).first()).toHaveAttribute('data-retained', '');
 
   // Scénario 5 : rouvrir efface la date retenue.
   await panel(page).getByRole('button', { name: 'Rouvrir le sondage' }).click();
@@ -94,6 +108,37 @@ test('le créateur gère son sondage de bout en bout', async ({ page }) => {
   await expect(page.getByTestId('mes-sondages').getByRole('link')).toHaveCount(1);
   await page.goto(url);
   await expect(page.getByRole('heading', { name: 'Introuvable' })).toBeVisible();
+});
+
+test('un vote arrivé pendant qu’on prépare un retrait verrouille le jour, et le créateur en est averti', async ({
+  page,
+  browser,
+}) => {
+  const email = await signUp(page, { name: 'Camille' });
+  const [kept, withdrawn] = [dayFromToday(3), dayFromToday(4)];
+  const publicId = await seedPoll(email, 'Pique-nique', [kept, withdrawn]);
+  await page.goto(`/s/${publicId}`);
+  const panelDay = (day: string) => panel(page).locator(`[data-day="${day}"]`);
+  await panelDay(withdrawn).click();
+  await expect(panelDay(withdrawn)).toHaveAttribute('data-withdrawn', '');
+  // Laisse au flux le temps de s'ouvrir (première compilation de la route).
+  await page.waitForTimeout(1500);
+
+  const guestContext = await browser.newContext();
+  const guest = await guestContext.newPage();
+  await guest.goto(`/s/${publicId}`);
+  await guest.getByLabel('Votre nom ou un pseudo').fill('Léa');
+  await dayButton(guest, withdrawn).click();
+  await guest.getByRole('button', { name: 'Valider ma réponse' }).click();
+  await expect(guest.getByText('Votre réponse est enregistrée')).toBeVisible();
+
+  // Sans recharger : le jour passe au gris, le retrait tombe, et on le dit.
+  await expect(panelDay(withdrawn)).toHaveAttribute('data-locked', '', { timeout: 5000 });
+  await expect(panelDay(withdrawn)).not.toHaveAttribute('data-withdrawn');
+  await expect(panel(page).getByTestId('retrait-devance')).toContainText('vient de recevoir un vote');
+  await expect(panel(page).getByRole('button', { name: 'Enregistrer les jours' })).toBeDisabled();
+  expect(await db.pollDay.count({ where: { poll: { publicId } } })).toBe(2);
+  await guestContext.close();
 });
 
 test('un autre compte ne voit aucun panneau de gestion', async ({ page, browser }) => {

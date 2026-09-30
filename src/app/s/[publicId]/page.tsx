@@ -126,7 +126,7 @@ export default async function PollPage({ params, searchParams }: { params: Param
           status={poll.status}
           retainedDay={poll.retainedDay}
           days={poll.days}
-          votesByDay={Object.fromEntries(availability.map(({ day, count }) => [day, count]))}
+          badges={badges}
           responses={moderated.map(({ id, name, account }) => ({ id, name, account }))}
           requireAccount={poll.requireAccount}
           notifyOwner={poll.notifyOwner}

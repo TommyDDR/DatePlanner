@@ -25,8 +25,9 @@ page 404 ordinaire, identique qu'un objet n'existe pas ou soit refusé.
 ## `/s/{publicId}` en détail
 
 **Pour tous** : titre, description, état (bandeau « Sondage clos » et date retenue en jade si
-clos), calendrier avec pastilles de votes, infobulle des votants au survol et au focus, liste
-« Qui est disponible ? » sous le calendrier (jour, nombre, noms ; réponse connectée marquée).
+clos), calendrier avec pastilles de votes, jours les plus votés cernés d'or, infobulle des
+votants au survol et au focus, liste « Qui est disponible ? » sous le calendrier (jour, nombre,
+noms ; réponse connectée marquée), du plus voté au moins voté, le plus proche d'abord à égalité.
 Abonnement au flux en direct (voir [http-api.md](http-api.md)).
 
 **Formulaire de réponse** (sondage ouvert seulement) :
@@ -41,8 +42,9 @@ Abonnement au flux en direct (voir [http-api.md](http-api.md)).
 | Sondage clos | aucun formulaire ; calendrier en consultation |
 
 **Panneau du créateur** (session du propriétaire seulement, jamais rendu aux autres) :
-modifier titre et description ; ajouter des jours ; retirer un jour sans vote (un jour voté
-n'offre pas le retrait) ; options compte exigé et résumé par email ; clore avec ou sans date
+modifier titre et description ; changer les jours sur le seul calendrier - jour sans vote
+orangé et retirable, jour voté gris et figé, jour libre ajouté d'un clic, le tout enregistré
+d'un envoi ; un retrait devancé par un vote tombe, avec un avertissement (décision 031) ; options compte exigé et résumé par email ; clore avec ou sans date
 retenue, changer la date retenue, rouvrir ; supprimer une réponse (confirmation) ; supprimer le
 sondage (confirmation) ; copier le lien.
 

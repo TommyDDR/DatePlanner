@@ -2,11 +2,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { SESSION } from '@/config/limits';
 import { prisma } from '@/server/db/client';
 import {
-  addPollDaysAction,
+  changePollDaysAction,
   closePollAction,
   deletePollAction,
   deleteResponseAction,
-  removePollDayAction,
   reopenPollAction,
   setPollOptionsAction,
   setRetainedDayAction,
@@ -55,8 +54,7 @@ describe('droits', () => {
     const id = poll.publicId;
     const attempts = await Promise.all([
       updatePollDetailsAction(null, form({ publicId: id, title: 'Piraté' })),
-      addPollDaysAction(null, form({ publicId: id, days: [dayFromToday(9)] })),
-      removePollDayAction(null, form({ publicId: id, day: dayFromToday(5) })),
+      changePollDaysAction(null, form({ publicId: id, add: [dayFromToday(9)], remove: [dayFromToday(5)] })),
       setPollOptionsAction(null, form({ publicId: id, requireAccount: 'on' })),
       closePollAction(null, form({ publicId: id })),
       deleteResponseAction(null, form({ publicId: id, responseId: response.id })),
@@ -83,38 +81,63 @@ describe('titre, description, jours, options', () => {
 
   it('ajoute des jours, ignore les doublons, refuse un jour passé et le dépassement', async () => {
     const { poll } = await ownPoll({ days: [dayFromToday(3)] });
-    await addPollDaysAction(null, form({ publicId: poll.publicId, days: [dayFromToday(3), dayFromToday(6)] }));
+    const change = (values: { add?: string[]; remove?: string[] }) =>
+      changePollDaysAction(null, form({ publicId: poll.publicId, ...values }));
+    expect(await change({ add: [dayFromToday(3), dayFromToday(6)] })).toMatchObject({ done: true });
     expect(await days(poll.id)).toEqual([dayFromToday(3), dayFromToday(6)]);
-    expect((await addPollDaysAction(null, form({ publicId: poll.publicId, days: [dayFromToday(-1)] })))?.error).toMatchObject({
-      code: 'VALIDATION',
-    });
+    expect((await change({ add: [dayFromToday(-1)] }))?.error).toMatchObject({ code: 'VALIDATION' });
     const many = Array.from({ length: 366 }, (_, i) => dayFromToday(10 + i));
-    expect((await addPollDaysAction(null, form({ publicId: poll.publicId, days: many })))?.error).toMatchObject({
-      code: 'VALIDATION',
-    });
+    expect((await change({ add: many }))?.error).toMatchObject({ code: 'VALIDATION' });
   });
 
   it('retire un jour sans vote, jamais un jour voté ni le dernier', async () => {
     const { poll } = await ownPoll({ days: [dayFromToday(3), dayFromToday(4), dayFromToday(5)] });
+    const remove = (day: string) => changePollDaysAction(null, form({ publicId: poll.publicId, remove: [day] }));
     await createResponse({ poll, days: [dayFromToday(3)] });
-    expect(await removePollDayAction(null, form({ publicId: poll.publicId, day: dayFromToday(4) }))).toMatchObject({ done: true });
-    expect((await removePollDayAction(null, form({ publicId: poll.publicId, day: dayFromToday(3) })))?.error).toEqual({
-      code: 'DAY_HAS_VOTES',
-      day: dayFromToday(3),
-    });
+    expect(await remove(dayFromToday(4))).toMatchObject({ done: true });
+    expect((await remove(dayFromToday(3)))?.error).toEqual({ code: 'DAY_HAS_VOTES', day: dayFromToday(3) });
     await prisma.vote.deleteMany();
-    await removePollDayAction(null, form({ publicId: poll.publicId, day: dayFromToday(5) }));
-    expect((await removePollDayAction(null, form({ publicId: poll.publicId, day: dayFromToday(3) })))?.error).toEqual({
-      code: 'LAST_DAY',
-    });
+    await remove(dayFromToday(5));
+    expect((await remove(dayFromToday(3)))?.error).toEqual({ code: 'LAST_DAY' });
     expect(await days(poll.id)).toEqual([dayFromToday(3)]);
+  });
+
+  it('ajoute et retire d’un seul envoi, et remplace ainsi le dernier jour', async () => {
+    const { poll } = await ownPoll({ days: [dayFromToday(3)] });
+    const state = await changePollDaysAction(
+      null,
+      form({ publicId: poll.publicId, add: [dayFromToday(7), dayFromToday(8)], remove: [dayFromToday(3)] }),
+    );
+    expect(state).toMatchObject({ done: true });
+    expect(await days(poll.id)).toEqual([dayFromToday(7), dayFromToday(8)]);
+  });
+
+  it('n’écrit rien quand un des retraits est refusé', async () => {
+    const { poll } = await ownPoll({ days: [dayFromToday(3), dayFromToday(4), dayFromToday(5)] });
+    await createResponse({ poll, days: [dayFromToday(5)] });
+    const state = await changePollDaysAction(
+      null,
+      form({ publicId: poll.publicId, add: [dayFromToday(9)], remove: [dayFromToday(4), dayFromToday(5)] }),
+    );
+    expect(state?.error).toEqual({ code: 'DAY_HAS_VOTES', day: dayFromToday(5) });
+    expect(await days(poll.id)).toEqual([dayFromToday(3), dayFromToday(4), dayFromToday(5)]);
+  });
+
+  it('refuse de retirer la date retenue ou un jour étranger au sondage', async () => {
+    const { poll } = await ownPoll({ days: [dayFromToday(3), dayFromToday(4)] });
+    await closePollAction(null, form({ publicId: poll.publicId, retainedDay: dayFromToday(4) }));
+    const retained = await changePollDaysAction(null, form({ publicId: poll.publicId, remove: [dayFromToday(4)] }));
+    expect(retained?.error).toMatchObject({ code: 'VALIDATION' });
+    const foreign = await changePollDaysAction(null, form({ publicId: poll.publicId, remove: [dayFromToday(9)] }));
+    expect(foreign?.error).toEqual({ code: 'NOT_FOUND' });
+    expect(await days(poll.id)).toEqual([dayFromToday(3), dayFromToday(4)]);
   });
 
   it('garde un vote arrivé juste avant un retrait', async () => {
     const { poll } = await ownPoll({ days: [dayFromToday(3), dayFromToday(4)] });
     const pollDay = await prisma.pollDay.findFirstOrThrow({ where: { pollId: poll.id, day: dayDate(dayFromToday(4)) } });
     await createResponse({ poll, days: [dayFromToday(4)] });
-    const state = await removePollDayAction(null, form({ publicId: poll.publicId, day: dayFromToday(4) }));
+    const state = await changePollDaysAction(null, form({ publicId: poll.publicId, remove: [dayFromToday(4)] }));
     expect(state?.error).toMatchObject({ code: 'DAY_HAS_VOTES' });
     expect(await prisma.vote.count({ where: { pollDayId: pollDay.id } })).toBe(1);
   });

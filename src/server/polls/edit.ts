@@ -32,48 +32,69 @@ export async function updatePollDetails(
   return count === 0 ? fail(NOT_FOUND) : ok({ pollId: poll.id });
 }
 
-/** Ajoute des jours : doublons ignorés, aucun jour passé, au plus 366 en tout (FR-027). */
-export async function addPollDays(ownerId: string, publicId: string, days: readonly string[], today: Day): Promise<Owned> {
-  return prisma.$transaction(async (tx) => {
-    const poll = await lockOwnedPoll(tx, ownerId, publicId);
-    if (!poll) return fail(NOT_FOUND);
-    const existing = await tx.pollDay.findMany({ where: { pollId: poll.id }, select: { day: true } });
-    const fresh = validateProposedDays(days, today, new Set(existing.map((d) => dayFromDate(d.day))));
-    if (!fresh.ok) return fail({ code: 'VALIDATION', fields: { days: RULE_MESSAGES[fresh.error] } });
-    if (fresh.value.length > 0) {
-      await tx.pollDay.createMany({ data: fresh.value.map((day) => ({ pollId: poll.id, day: dateFromDay(day) })) });
-    }
-    return ok({ pollId: poll.id });
-  });
+/** Ce qu'une transaction annule en levant : le premier refus, rendu tel quel à l'appelant. */
+class Refusal extends Error {
+  constructor(readonly outcome: Owned) {
+    super('refus');
+  }
 }
 
 /**
- * Retire un jour SANS vote (FR-027). Le retrait est conditionnel dans l'ordre
- * même (`NOT EXISTS` un vote), et la clé étrangère différée des votes le
- * rattrape à la validation si un vote s'est glissé entre-temps : jamais un
- * vote n'est effacé par un retrait de jour.
+ * Change les jours proposés d'un seul geste (FR-027) : ajoute `add` - doublons
+ * ignorés, aucun jour passé, au plus 366 en tout - et retire `remove`, des
+ * jours SANS vote. Tout ou rien : un seul refus, et rien n'est écrit.
+ *
+ * Chaque retrait est conditionnel dans l'ordre même (`NOT EXISTS` un vote),
+ * et la clé étrangère différée des votes le rattrape à la validation si un
+ * vote s'est glissé entre-temps : jamais un vote n'est effacé par un retrait
+ * de jour. `DAY_HAS_VOTES` nomme le jour, pour que le créateur sache lequel.
  */
-export async function removePollDay(ownerId: string, publicId: string, day: Day): Promise<Owned> {
+export async function changePollDays(
+  ownerId: string,
+  publicId: string,
+  change: { add: readonly string[]; remove: readonly string[] },
+  today: Day,
+): Promise<Owned> {
   try {
     return await prisma.$transaction(async (tx) => {
       const poll = await lockOwnedPoll(tx, ownerId, publicId);
       if (!poll) return fail(NOT_FOUND);
-      const target = await tx.pollDay.findFirst({ where: { pollId: poll.id, day: dateFromDay(day) }, select: { id: true } });
-      if (!target) return fail(NOT_FOUND);
-      if (target.id === poll.retainedDayId) {
-        return fail({ code: 'VALIDATION', fields: { _form: 'La date retenue ne peut pas être retirée.' } });
-      }
-      if ((await tx.pollDay.count({ where: { pollId: poll.id } })) <= 1) return fail({ code: 'LAST_DAY' });
+      const existing = await tx.pollDay.findMany({ where: { pollId: poll.id }, select: { id: true, day: true } });
+      const byDay = new Map(existing.map((d) => [dayFromDate(d.day), d.id]));
 
-      const removed = await tx.$executeRaw`
-        DELETE FROM "poll_day" WHERE "id" = ${target.id}::uuid
-        AND NOT EXISTS (SELECT 1 FROM "vote" WHERE "poll_day_id" = ${target.id}::uuid)`;
-      if (removed === 0) return fail({ code: 'DAY_HAS_VOTES', day });
+      const remove = new Set(change.remove);
+      const targets: Array<{ day: Day; id: string }> = [];
+      for (const day of remove) {
+        const id = byDay.get(day);
+        if (!id) return fail(NOT_FOUND);
+        if (id === poll.retainedDayId) {
+          return fail({ code: 'VALIDATION', fields: { _form: 'La date retenue ne peut pas être retirée.' } });
+        }
+        targets.push({ day, id });
+      }
+
+      const kept = new Set([...byDay.keys()].filter((day) => !remove.has(day)));
+      const fresh = change.add.length > 0 ? validateProposedDays(change.add, today, kept) : null;
+      if (fresh && !fresh.ok) return fail({ code: 'VALIDATION', fields: { days: RULE_MESSAGES[fresh.error] } });
+      if (kept.size + (fresh?.value.length ?? 0) === 0) return fail({ code: 'LAST_DAY' });
+
+      for (const target of targets) {
+        const removed = await tx.$executeRaw`
+          DELETE FROM "poll_day" WHERE "id" = ${target.id}::uuid
+          AND NOT EXISTS (SELECT 1 FROM "vote" WHERE "poll_day_id" = ${target.id}::uuid)`;
+        // Lever annule les retraits déjà faits : tout ou rien.
+        if (removed === 0) throw new Refusal(fail({ code: 'DAY_HAS_VOTES', day: target.day }));
+      }
+      if (fresh && fresh.value.length > 0) {
+        await tx.pollDay.createMany({ data: fresh.value.map((day) => ({ pollId: poll.id, day: dateFromDay(day) })) });
+      }
       return ok({ pollId: poll.id });
     });
   } catch (error) {
+    if (error instanceof Refusal) return error.outcome;
     // La contrainte différée a refusé à la validation : un vote est arrivé.
-    if (isForeignKeyViolation(error)) return fail({ code: 'DAY_HAS_VOTES', day });
+    // Le verrou du sondage l'empêche en principe ; le jour n'est ici qu'estimé.
+    if (isForeignKeyViolation(error)) return fail({ code: 'DAY_HAS_VOTES', day: [...change.remove].sort()[0] ?? '' });
     throw error;
   }
 }
