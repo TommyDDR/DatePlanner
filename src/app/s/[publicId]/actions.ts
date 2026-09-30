@@ -6,6 +6,7 @@ import { todayInParis } from '@/lib/paris-day';
 import { fieldErrors, pollOnlySchema, pseudonymSchema, readForm, submitResponseSchema } from '@/lib/validation';
 import { ensureDeviceToken, readDeviceTokenHash } from '@/server/auth/device';
 import { getSessionUser } from '@/server/auth/session';
+import { publish } from '@/server/events/bus';
 import { submitResponse, withdrawResponse, type Respondent } from '@/server/polls/responses';
 import { consume, currentIp } from '@/server/ratelimit';
 
@@ -46,6 +47,8 @@ export async function submitResponseAction(_previous: FormState, form: FormData)
   const result = await submitResponse(publicId, respondent, days, pseudonym, todayInParis(new Date()));
   if (!result.ok) return { error: result.error, values };
 
+  // Après la transaction : les pages ouvertes se relisent (FR-023).
+  await publish(result.data.pollId, 'responses');
   revalidatePath(`/s/${publicId}`);
   return { done: true };
 }
@@ -68,6 +71,7 @@ export async function withdrawResponseAction(_previous: FormState, form: FormDat
   const result = await withdrawResponse(publicId, respondent);
   if (!result.ok) return { error: result.error };
 
+  await publish(result.data.pollId, 'responses');
   revalidatePath(`/s/${publicId}`);
   return { done: true };
 }

@@ -170,20 +170,20 @@ Projet unique à la racine (plan.md) : `src/`, `prisma/`, `tests/unit/`, `tests/
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T067 [P] [US3] Écrire `tests/unit/availability.test.ts` : comptes et noms par jour, réponse connectée marquée, noms triés, au-delà de 20 votants « et N autres », jours sans vote absents
-- [ ] T068 [P] [US3] Écrire `tests/integration/live-stream.test.ts` : `publicId` inconnu ⇒ 404 ; événement d'un autre sondage non transmis ; message limité à `{ kind, at }` ; 7e flux simultané de la même adresse ⇒ 429 ; `submitResponse` et `withdrawResponse` publient `responses`
-- [ ] T069 [P] [US3] Écrire `e2e/live-updates.spec.ts` : deux contextes, B vote, A voit la pastille en moins de 5 s sans recharger ; infobulle au survol et au focus clavier ; liste « Qui est disponible ? » visible en largeur téléphone (375 px) ; sondage dont les jours s'étendent sur plusieurs mois ⇒ calendrier ouvert sur le mois du premier jour proposé à venir, mois porteurs de jours signalés (scénarios US3 1 à 5, cas limite « plusieurs mois », SC-003, SC-008)
+- [X] T067 [P] [US3] Écrire `tests/unit/availability.test.ts` : comptes et noms par jour, réponse connectée marquée, noms triés, au-delà de 20 votants « et N autres », jours sans vote absents
+- [X] T068 [P] [US3] Écrire `tests/integration/live-stream.test.ts` : `publicId` inconnu ⇒ 404 ; événement d'un autre sondage non transmis ; message limité à `{ kind, at }` ; 7e flux simultané de la même adresse ⇒ 429 ; `submitResponse` et `withdrawResponse` publient `responses`
+- [X] T069 [P] [US3] Écrire `e2e/live-updates.spec.ts` : deux contextes, B vote, A voit la pastille en moins de 5 s sans recharger ; infobulle au survol et au focus clavier ; liste « Qui est disponible ? » visible en largeur téléphone (375 px) ; sondage dont les jours s'étendent sur plusieurs mois ⇒ calendrier ouvert sur le mois du premier jour proposé à venir, mois porteurs de jours signalés (scénarios US3 1 à 5, cas limite « plusieurs mois », SC-003, SC-008)
 
 ### Implementation for User Story 3
 
-- [ ] T070 [P] [US3] Créer `src/lib/availability.ts` (construction des jours, comptes et noms à partir des votes ; troncature à 20 noms)
-- [ ] T071 [US3] Ajouter `getPollSynthesis(pollId)` à `src/server/polls/read.ts` : votes groupés par jour en une requête, nom = `User.displayName` pour une réponse connectée, `pseudonym` sinon
-- [ ] T072 [US3] Étendre `src/components/date-picker.tsx` : prop `badges` (pastille à aplat `--color-vote`, texte `--color-on-ember`, `aria-label` « N votes »), infobulle des votants au survol et au focus (`role="tooltip"`, `aria-describedby`), prop `markedMonths` signalée dans la navigation, prop `retainedDay` (aplat jade), prop `readOnly` (consultation : aucun jour ne se choisit, la navigation et le clavier restent) ; sans changer les comportements portés en T042
-- [ ] T073 [P] [US3] Créer `src/app/s/[publicId]/_sections/availability-list.tsx` : liste « Qui est disponible ? » par jour, nombre et noms, marque des réponses connectées
-- [ ] T074 [US3] Créer `src/app/api/s/[publicId]/flux/route.ts` selon contracts/http-api.md (porté de `api/evenements` : `retry`, `ready`, `change`, battement 25 s, fermeture à 55 min, compteur de flux par adresse limité à 6 ⇒ 429, 404 pour un sondage inconnu)
-- [ ] T075 [US3] Publier `responses` après la transaction dans `submitResponse` et `withdrawResponse` de `src/app/s/[publicId]/actions.ts`
-- [ ] T076 [US3] Créer `src/components/live-poll.tsx` : `EventSource` sur `/api/s/{publicId}/flux`, `router.refresh()` sur `change` (regroupés sur 300 ms) et sur `ready` après une coupure, arrêt sur erreur définitive
-- [ ] T077 [US3] Intégrer pastilles, infobulles, liste et `LivePoll` dans `src/app/s/[publicId]/page.tsx`
+- [X] T070 [P] [US3] Créer `src/lib/availability.ts` (construction des jours, comptes et noms à partir des votes ; troncature à 20 noms)
+- [X] T071 [US3] Ajouter `getPollSynthesis(pollId)` à `src/server/polls/read.ts` : votes groupés par jour en une requête, nom = `User.displayName` pour une réponse connectée, `pseudonym` sinon
+- [X] T072 [US3] Étendre `src/components/date-picker.tsx` : prop `badges` (pastille à aplat `--color-vote`, texte `--color-on-ember`, `aria-label` « N votes »), infobulle des votants au survol et au focus (`role="tooltip"`, `aria-describedby`), prop `markedMonths` signalée dans la navigation, prop `retainedDay` (aplat jade), prop `readOnly` (consultation : aucun jour ne se choisit, la navigation et le clavier restent) ; sans changer les comportements portés en T042
+- [X] T073 [P] [US3] Créer `src/app/s/[publicId]/_sections/availability-list.tsx` : liste « Qui est disponible ? » par jour, nombre et noms, marque des réponses connectées
+- [X] T074 [US3] Créer `src/app/api/s/[publicId]/flux/route.ts` selon contracts/http-api.md (porté de `api/evenements` : `retry`, `ready`, `change`, battement 25 s, fermeture à 55 min, compteur de flux par adresse limité à 6 ⇒ 429, 404 pour un sondage inconnu)
+- [X] T075 [US3] Publier `responses` après la transaction dans `submitResponse` et `withdrawResponse` de `src/app/s/[publicId]/actions.ts`
+- [X] T076 [US3] Créer `src/components/live-poll.tsx` : `EventSource` sur `/api/s/{publicId}/flux`, `router.refresh()` sur `change` (regroupés sur 300 ms) et sur `ready` après une coupure, arrêt sur erreur définitive
+- [X] T077 [US3] Intégrer pastilles, infobulles, liste et `LivePoll` dans `src/app/s/[publicId]/page.tsx`
 
 **Checkpoint**: le parcours créer, répondre, voir en direct est complet (T069 vert)
 

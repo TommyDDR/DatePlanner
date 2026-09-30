@@ -82,7 +82,8 @@ test('un visiteur crée un compte, un sondage, et partage son lien', async ({ pa
   await guestPage.goto(new URL(link).pathname);
   await expect(guestPage.getByRole('heading', { level: 1, name: 'Dîner de rentrée' })).toBeVisible();
   await expect(guestPage.getByText('Chez Léa, apportez un dessert.')).toBeVisible();
-  await expect(guestPage.getByRole('heading', { name: 'Jours proposés' })).toBeVisible();
+  await expect(guestPage.getByRole('heading', { name: 'Qui est disponible ?' })).toBeVisible();
+  for (const offset of [3, 4, 5]) await expect(guestPage.locator(`[data-day="${dayFromToday(offset)}"]`)).toBeVisible();
   await expect(guestPage.getByText('Sondage créé : partagez-le')).toHaveCount(0);
   await guest.close();
 });

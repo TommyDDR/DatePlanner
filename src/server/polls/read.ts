@@ -1,3 +1,4 @@
+import { buildAvailability, type DayAvailability } from '@/lib/availability';
 import { dayFromDate } from '@/lib/paris-day';
 import { isPublicId } from '@/lib/public-id';
 import { prisma } from '@/server/db/client';
@@ -24,6 +25,30 @@ export type PollView = {
   /** La date retenue, `AAAA-MM-JJ`, seulement sur un sondage clos. */
   retainedDay: string | null;
 };
+
+/**
+ * Qui a voté pour quel jour (FR-020 à FR-022), en une seule requête.
+ *
+ * Le nom d'une réponse connectée est le nom d'affichage ACTUEL du compte, lu
+ * au rendu ; celui d'une réponse sans compte, son pseudo. Rien d'autre du
+ * compte - ni adresse, ni identifiant - ne sort d'ici.
+ */
+export async function getPollSynthesis(pollId: string): Promise<DayAvailability[]> {
+  const votes = await prisma.vote.findMany({
+    where: { response: { pollId } },
+    select: {
+      pollDay: { select: { day: true } },
+      response: { select: { pseudonym: true, user: { select: { displayName: true } } } },
+    },
+  });
+  return buildAvailability(
+    votes.map((vote) => ({
+      day: dayFromDate(vote.pollDay.day),
+      name: vote.response.user?.displayName ?? vote.response.pseudonym ?? '',
+      account: vote.response.user !== null,
+    })),
+  );
+}
 
 /** La réponse de ce répondant à ce sondage : son pseudo et ses jours. */
 export type OwnResponse = { pseudonym: string | null; days: string[] };
