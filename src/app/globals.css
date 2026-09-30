@@ -28,6 +28,11 @@
   --color-text: light-dark(#17130f, #f5f1e8);
   --color-text-muted: light-dark(#57504a, #a89e91);
   --color-text-faint: light-dark(#776e64, #6f665c);
+  /* Propre à DatePlanner : le texte discret mais INFORMATIF - aides sous les
+     champs, étiquettes techniques, numéros de semaine. En sombre, `text-faint`
+     de laserit.fr n'offre que 3,3:1 sur la matière ; celui-ci passe 5:1
+     (SC-009). `text-faint` reste aux éléments décoratifs ou inactifs. */
+  --color-text-subtle: light-dark(#776e64, #8f857a);
 
   /* Incandescence. En clair, l'orange vif ne passe pas le contraste sur un
      fond papier : le ton est descendu d'un cran, et le texte porté par un
@@ -47,6 +52,11 @@
   --color-on-jade: light-dark(#f0fdf4, #0c0a09);
   --color-amber: light-dark(#8a6110, #e8b62c);
   --color-rust: light-dark(#b23c14, #c4491f);
+  /* Propre à DatePlanner : le TEXTE d'une erreur ou d'une action
+     destructrice. En sombre, `rust` de laserit.fr n'offre que 3,8:1 sur la
+     matière ; celui-ci passe 4,9:1 même sur une surface relevée (SC-009).
+     `rust` reste aux bordures, hachures et barrés. */
+  --color-danger: light-dark(#b23c14, #e46a40);
 
   /* Traits */
   --color-rule: light-dark(#e2dbcd, #2a2421);
@@ -170,7 +180,7 @@ fieldset {
     font-size: 0.6875rem;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--color-text-faint);
+    color: var(--color-text-subtle);
   }
 
   .surface {
@@ -242,7 +252,7 @@ fieldset {
     justify-content: center;
     gap: 0.5rem;
     border: 1px solid color-mix(in oklab, var(--color-rust) 55%, transparent);
-    color: var(--color-rust);
+    color: var(--color-danger);
     font-weight: 500;
     padding: 0.625rem 1.125rem;
     border-radius: var(--radius-pill);
@@ -265,7 +275,7 @@ fieldset {
   }
 
   .field::placeholder {
-    color: var(--color-text-faint);
+    color: var(--color-text-subtle);
   }
 
   /* Sous 16 px, Safari iOS grossit la page dès que le champ prend le focus. */
