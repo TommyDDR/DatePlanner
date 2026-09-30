@@ -4,4 +4,7 @@
  * Importé par `outbox.ts` : dès qu'un email peut partir, tous les modèles sont
  * connus. Un modèle ajouté s'ajoute ici.
  */
-export {};
+import './password-reset';
+import './digest';
+import './retained-day';
+import './inactivity';

@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { PollStatus } from '@prisma/client';
+import { todayInParis } from '@/lib/paris-day';
 import { prisma } from '@/server/db/client';
 
 /**
@@ -20,10 +21,13 @@ export function dayDate(day: string): Date {
   return new Date(`${day}T00:00:00.000Z`);
 }
 
-/** Le jour à `offset` jours d'aujourd'hui (UTC), au format `AAAA-MM-JJ`. */
+/**
+ * Le jour à `offset` jours d'aujourd'hui, au format `AAAA-MM-JJ` - aujourd'hui
+ * s'entendant à Paris, comme pour le serveur : sinon un test lancé entre minuit
+ * et deux heures verrait « demain » déjà arrivé.
+ */
 export function dayFromToday(offset: number): string {
-  const date = new Date();
-  date.setUTCHours(0, 0, 0, 0);
+  const date = new Date(`${todayInParis(new Date())}T00:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() + offset);
   return date.toISOString().slice(0, 10);
 }

@@ -23,9 +23,9 @@ describe('politique de sécurité du contenu', () => {
     expect(policy).not.toContain('upgrade-insecure-requests');
   });
 
-  it('ne laisse un formulaire poster que sur le site ou vers Google', () => {
+  it('ne laisse un formulaire poster que sur le site', () => {
     const policy = contentSecurityPolicy({ nonce: 'n', isProduction: true });
-    expect(directive(policy, 'form-action')).toBe("form-action 'self' https://accounts.google.com");
+    expect(directive(policy, 'form-action')).toBe("form-action 'self'");
     expect(directive(policy, 'connect-src')).toBe("connect-src 'self'");
   });
 

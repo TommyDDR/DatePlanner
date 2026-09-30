@@ -1,0 +1,18 @@
+# Ordonnanceur de la sauvegarde - chaque nuit vers 3 h.
+#
+#   sudo systemctl enable --now dateplanner-backup.timer
+#   systemctl list-timers dateplanner-backup.timer
+
+[Unit]
+Description=Sauvegarde nocturne de DatePlanner
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+# Machine éteinte à 3 h : la sauvegarde manquée part au démarrage suivant.
+Persistent=true
+# Quelques minutes de jeu : sur l'hyperviseur, les VM qui sauvegardent à la
+# même seconde se disputent le même disque.
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target

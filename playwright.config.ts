@@ -46,7 +46,9 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
     command: `npx next dev --port ${PORT}`,
-    url: BASE_URL,
+    // Le point de santé : il répond 200 dès que le serveur ET la base sont
+    // prêts, quelles que soient les pages déjà écrites.
+    url: `${BASE_URL}/api/sante`,
     reuseExistingServer: !process.env.CI,
     // Le premier rendu compile chaque page à la demande.
     timeout: 180_000,

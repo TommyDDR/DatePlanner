@@ -35,6 +35,16 @@ const PROBE_ORIGIN = 'https://redirection.invalid';
  * Le chemin rendu est celui que l'analyse a reconstruit, pas la chaîne reçue :
  * ce qui part dans l'en-tête est donc exactement ce qui a été vérifié.
  */
+/**
+ * Le paramètre `suite` d'une page, analysé : un chemin du site, ou `undefined`
+ * pour tout le reste - absent, multiple, ou qui mènerait ailleurs.
+ */
+export function nextFromParam(value: string | string[] | undefined): string | undefined {
+  if (typeof value !== 'string' || value === '') return undefined;
+  const safe = safeInternalPath(value, '');
+  return safe === '' ? undefined : safe;
+}
+
 export function safeInternalPath(target: string, fallback: string): string {
   if (!target.startsWith('/')) return fallback;
 

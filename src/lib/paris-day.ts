@@ -44,6 +44,19 @@ export function dateFromDay(day: Day): Date {
   return new Date(`${day}T00:00:00.000Z`);
 }
 
+/**
+ * Le même quantième `months` mois plus tôt ou plus tard, ramené au dernier
+ * jour du mois quand il n'y existe pas : un an avant le 29 février 2028 est
+ * le 28 février 2027.
+ */
+export function addMonths(day: Day, months: number): Day {
+  const [year, month, date] = day.split('-').map(Number) as [number, number, number];
+  const target = new Date(Date.UTC(year, month - 1 + months, 1));
+  const lastDate = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+  target.setUTCDate(Math.min(date, lastDate));
+  return dayFromDate(target);
+}
+
 const LONG_DAY = new Intl.DateTimeFormat('fr-FR', {
   weekday: 'long',
   day: 'numeric',
