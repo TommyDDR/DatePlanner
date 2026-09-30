@@ -83,12 +83,14 @@ export async function deliver(id: string): Promise<boolean> {
       });
       return false;
     }
-    const result = await sendEmail({ to: entry.to, ...rendered });
+    const { afterSend, ...email } = rendered;
+    const result = await sendEmail({ to: entry.to, ...email });
     if (result.ok) {
       await prisma.emailOutbox.update({
         where: { id: entry.id },
         data: { status: 'SENT', sentAt: new Date(), attempts: entry.attempts + 1, lastError: null },
       });
+      await afterSend?.();
       return true;
     }
     await markFailure(entry.id, entry.attempts + 1, result.error);

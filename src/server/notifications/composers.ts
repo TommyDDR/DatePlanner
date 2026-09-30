@@ -5,3 +5,5 @@
  * connus. Un modèle ajouté s'ajoute ici.
  */
 import './password-reset';
+import './digest';
+import './retained-day';
