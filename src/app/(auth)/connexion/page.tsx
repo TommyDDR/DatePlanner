@@ -29,7 +29,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
             Pas encore de compte ?{' '}
             <Link
               href={withNext('/inscription')}
-              className="font-medium text-[var(--color-ember)] underline-offset-4 hover:underline"
+              className="font-medium text-[var(--color-ember)] underline underline-offset-4"
             >
               Créer un compte
             </Link>

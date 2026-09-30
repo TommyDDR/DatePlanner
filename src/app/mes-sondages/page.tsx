@@ -30,7 +30,7 @@ export default async function MyPollsPage() {
       {polls.length === 0 ? (
         <div className="surface flex flex-col items-start gap-3 p-6">
           <p>Vous n’avez pas encore créé de sondage.</p>
-          <Link href="/nouveau" className="font-medium text-[var(--color-ember)] underline-offset-4 hover:underline">
+          <Link href="/nouveau" className="font-medium text-[var(--color-ember)] underline underline-offset-4">
             Créer mon premier sondage
           </Link>
         </div>

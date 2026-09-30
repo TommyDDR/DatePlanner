@@ -1,0 +1,23 @@
+# Ordonnanceur de la maintenance - toutes les dix minutes.
+#
+#   sudo systemctl enable --now dateplanner-maintenance.timer
+#   systemctl list-timers dateplanner-maintenance.timer
+#
+# Dix minutes : les emails en attente partent vite, et /api/sante signale un
+# ordonnanceur arrêté au bout de trente minutes (`MAINTENANCE.lateAfterMinutes`,
+# src/config/limits.ts). Changer la période ici sans la changer là-bas
+# ferait signaler un ordonnanceur qui tourne, ou taire un ordonnanceur arrêté.
+
+[Unit]
+Description=Passage de maintenance de DatePlanner toutes les 10 minutes
+
+[Timer]
+OnCalendar=*:0/10
+# Un passage manqué - machine éteinte, coupure de courant - est rattrapé au
+# démarrage suivant.
+Persistent=true
+AccuracySec=30s
+Unit=dateplanner-maintenance.service
+
+[Install]
+WantedBy=timers.target

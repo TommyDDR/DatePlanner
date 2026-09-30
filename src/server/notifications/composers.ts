@@ -7,3 +7,4 @@
 import './password-reset';
 import './digest';
 import './retained-day';
+import './inactivity';

@@ -28,6 +28,11 @@
   --color-text: light-dark(#17130f, #f5f1e8);
   --color-text-muted: light-dark(#57504a, #a89e91);
   --color-text-faint: light-dark(#776e64, #6f665c);
+  /* Propre à DatePlanner : le texte discret mais INFORMATIF - aides sous les
+     champs, étiquettes techniques, numéros de semaine. En sombre, `text-faint`
+     de laserit.fr n'offre que 3,3:1 sur la matière ; celui-ci passe 5:1
+     (SC-009). `text-faint` reste aux éléments décoratifs ou inactifs. */
+  --color-text-subtle: light-dark(#776e64, #8f857a);
 
   /* Incandescence. En clair, l'orange vif ne passe pas le contraste sur un
      fond papier : le ton est descendu d'un cran, et le texte porté par un
@@ -47,6 +52,11 @@
   --color-on-jade: light-dark(#f0fdf4, #0c0a09);
   --color-amber: light-dark(#8a6110, #e8b62c);
   --color-rust: light-dark(#b23c14, #c4491f);
+  /* Propre à DatePlanner : le TEXTE d'une erreur ou d'une action
+     destructrice. En sombre, `rust` de laserit.fr n'offre que 3,8:1 sur la
+     matière ; celui-ci passe 4,9:1 même sur une surface relevée (SC-009).
+     `rust` reste aux bordures, hachures et barrés. */
+  --color-danger: light-dark(#b23c14, #e46a40);
 
   /* Traits */
   --color-rule: light-dark(#e2dbcd, #2a2421);
@@ -170,7 +180,7 @@ fieldset {
     font-size: 0.6875rem;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--color-text-faint);
+    color: var(--color-text-subtle);
   }
 
   .surface {
@@ -242,7 +252,7 @@ fieldset {
     justify-content: center;
     gap: 0.5rem;
     border: 1px solid color-mix(in oklab, var(--color-rust) 55%, transparent);
-    color: var(--color-rust);
+    color: var(--color-danger);
     font-weight: 500;
     padding: 0.625rem 1.125rem;
     border-radius: var(--radius-pill);
@@ -265,7 +275,7 @@ fieldset {
   }
 
   .field::placeholder {
-    color: var(--color-text-faint);
+    color: var(--color-text-subtle);
   }
 
   /* Sous 16 px, Safari iOS grossit la page dès que le champ prend le focus. */
@@ -398,6 +408,103 @@ fieldset {
     opacity: 1;
     transform: none;
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Démonstration de l'accueil                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * La démonstration du sondage (FR-032) : la grille d'un mois se trace comme
+ * un trait de découpe laser, les jours proposés s'allument, les pastilles de
+ * votes apparaissent et comptent, la date retenue s'illumine en jade.
+ *
+ * N'animent que `transform` et `opacity` : le compositeur s'en charge seul,
+ * sans repeindre la page. Chaque animation garde son état final
+ * (`both`) : sous « réduire les animations », la règle globale les ramène à
+ * l'instant, et la démonstration s'affiche d'emblée dans cet état final.
+ */
+@keyframes demo-trace {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes demo-head {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(var(--run, 0px));
+    opacity: 0;
+  }
+}
+
+@keyframes demo-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes demo-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes demo-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.demo-trace {
+  transform-box: fill-box;
+  transform-origin: left center;
+  animation: demo-trace 1.5s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+.demo-head {
+  animation: demo-head 1.5s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+.demo-fade {
+  animation: demo-fade 0.5s ease-out both;
+  animation-delay: var(--delay, 0s);
+}
+
+.demo-out {
+  animation: demo-out 0.2s ease-in both;
+  animation-delay: var(--delay, 0s);
+}
+
+.demo-pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: demo-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--delay, 0s);
 }
 
 /* Le piège à robots : hors flux, hors lecteur d'écran, hors parcours clavier. */
