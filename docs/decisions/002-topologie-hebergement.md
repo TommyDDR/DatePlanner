@@ -4,7 +4,7 @@ _Source : research.md, R2._
 
 ## Décision
 
-Une VM Proxmox dédiée, VM 102 `dateplanner` (`192.168.1.53`, bail DHCP statique), Debian, avec Node 22 et son propre PostgreSQL 17. La VM proxy existante (`192.168.1.51`, Traefik et CrowdSec) reçoit un second fichier dynamique `dateplanner.yml`. Le pare-feu de la VM n'ouvre le port 3000 qu'à la VM proxy. DNS : CNAME `dateplanner` vers `laserit.fr.` dans la zone OVH.
+Une VM Proxmox dédiée, VM 102 `dateplanner` (`192.168.1.53`, fixée par cloud-init), Debian, avec Node 22 et son propre PostgreSQL 17. La VM proxy existante (`192.168.1.51`, Traefik et CrowdSec) reçoit un second fichier dynamique `dateplanner.yml`. Le pare-feu de la VM n'ouvre le port 3000 qu'à la VM proxy. DNS : CNAME `dateplanner` vers `laserit.fr.` dans la zone OVH.
 
 ## Pourquoi
 

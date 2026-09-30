@@ -156,12 +156,40 @@ internet ── box (80, 443) ── VM 101 proxy : Traefik + CrowdSec ── VM
 
 ### 6.1 La VM
 
-Debian stable, 2 vCPU, 2 Go de mémoire, 20 Go de disque ; bail DHCP statique
-`192.168.1.53` sur la box ; accès `admin` par clé SSH.
+Debian 13, 2 vCPU, 2 Go de mémoire, 20 Go de disque, créée depuis l'image
+cloud de Debian comme les VM 100 et 101. Le compte `admin` et sa clé SSH
+viennent du fichier cloud-init du proxy, recopié sous un autre nom d'hôte.
+L'adresse `192.168.1.53` est FIXÉE par cloud-init, pas par un bail de la box :
+la réserver sur la box, ou la tenir hors de sa plage DHCP, évite qu'un autre
+appareil la reçoive.
+
+Sur l'hôte Proxmox (`ssh root@192.168.1.10`) :
 
 ```bash
-sudo apt install -y curl git ufw postgresql-17      # dépôt PGDG si la version manque
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt install -y nodejs
+cd /var/lib/vz/snippets
+sed -e 's/^hostname: proxy$/hostname: dateplanner/' -e 's/^fqdn: proxy.lan$/fqdn: dateplanner.lan/' \
+  proxy-user.yaml > dateplanner-user.yaml && chmod 600 dateplanner-user.yaml
+
+qm create 102 --name dateplanner --memory 2048 --balloon 0 --cores 2 --cpu host --machine q35 --ostype l26 \
+  --net0 virtio=BC:24:11:00:AA:0C,bridge=vmbr0 --scsihw virtio-scsi-single --agent enabled=1 \
+  --serial0 socket --vga serial0 --onboot 1 --startup order=3 --tags dateplanner
+qm set 102 --scsi0 local-lvm:0,import-from=/var/lib/vz/template/iso/debian-13-genericcloud-amd64.qcow2,discard=on,iothread=1,ssd=1
+qm resize 102 scsi0 20G
+qm set 102 --ide2 local-lvm:cloudinit,media=cdrom --boot order=scsi0
+qm set 102 --cicustom user=local:snippets/dateplanner-user.yaml \
+  --ipconfig0 ip=192.168.1.53/24,gw=192.168.1.254 --nameserver 192.168.1.254 --searchdomain lan
+qm start 102
+```
+
+Puis sur la VM (`ssh admin@192.168.1.53`). Debian 13 fournit PostgreSQL 17 ;
+Node.js 22 vient de NodeSource, comme sur la VM de laserit.fr :
+
+```bash
+sudo apt install -y curl git ufw gnupg postgresql
+curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/nodesource.gpg
+echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" \
+  | sudo tee /etc/apt/sources.list.d/nodesource.list
+sudo apt update && sudo apt install -y nodejs
 
 # Pare-feu : SSH depuis le réseau local, le port 3000 depuis la VM proxy SEULE.
 sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp
@@ -175,17 +203,20 @@ réseau local : la seule porte d'entrée doit rester le proxy.
 ### 6.2 Base, compte et code
 
 ```bash
-sudo -u postgres createuser --pwprompt dateplanner
+sudo -u postgres createuser --pwprompt dateplanner       # ni CREATEDB, ni CREATEROLE
 sudo -u postgres createdb --owner=dateplanner dateplanner
 
-sudo useradd --system --home /opt/dateplanner --shell /usr/sbin/nologin dateplanner
-sudo git clone https://github.com/TommyDDR/DatePlanner.git /opt/dateplanner   # dépôt privé : clé de déploiement en lecture
+sudo useradd --system --home-dir /opt/dateplanner --shell /usr/sbin/nologin dateplanner
+sudo git clone https://github.com/TommyDDR/DatePlanner.git /opt/dateplanner   # dépôt public
 sudo chown -R dateplanner:dateplanner /opt/dateplanner
 
 sudo -u dateplanner cp /opt/dateplanner/.env.example /opt/dateplanner/.env
 sudo chmod 600 /opt/dateplanner/.env
 sudoedit /opt/dateplanner/.env      # valeurs de production (§ 3), NODE_ENV=production
 ```
+
+Le mot de passe de la base, `APP_SECRET` et `CRON_SECRET` se tirent au hasard
+sur la VM (commande du § 3) et ne s'écrivent que dans ce fichier.
 
 Le premier déploiement d'une version suit ensuite `deploy.md` § 3 (checkout
 du tag, `npm ci`, `prisma migrate deploy`, build).
@@ -201,7 +232,8 @@ sudo mkdir -p /etc/systemd/journald.conf.d
 sudo cp deploy/journald-dateplanner.conf /etc/systemd/journald.conf.d/dateplanner.conf
 sudo systemctl restart systemd-journald
 sudo systemctl daemon-reload
-sudo systemctl enable --now dateplanner dateplanner-maintenance.timer dateplanner-backup.timer
+sudo systemctl enable dateplanner dateplanner-maintenance.timer dateplanner-backup.timer
+# Démarrage APRÈS le premier build (deploy.md § 3) : sans lui, le service boucle puis abandonne.
 systemctl list-timers 'dateplanner-*'
 ```
 

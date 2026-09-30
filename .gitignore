@@ -21,3 +21,8 @@ next-env.d.ts
 # Sorties de Playwright : rapport HTML, traces et captures des échecs.
 playwright-report/
 test-results/
+# Le compte de service a /opt/dateplanner pour dossier personnel : npm et
+# les outils y déposent leurs caches, qui n'ont rien à faire dans git.
+.npm/
+.cache/
+.config/

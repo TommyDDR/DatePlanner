@@ -21,7 +21,7 @@ http:
     dateplanner:
       loadBalancer:
         servers:
-          # La VM 102 (bail DHCP statique sur la box). Next y écoute sur le
+          # La VM 102 (adresse fixée par cloud-init). Next y écoute sur le
           # réseau et son pare-feu n'ouvre le port 3000 qu'à la VM proxy :
           # voir deploy/dateplanner-proxy-distant.conf.
           - url: "http://192.168.1.53:3000"
