@@ -4,6 +4,7 @@ import { SITE_URL } from '@/config/identity';
 import { CopyLink } from '@/components/copy-link';
 import type { DayBadge } from '@/components/date-picker';
 import { LivePoll } from '@/components/live-poll';
+import { MarkSeen } from '@/components/mark-seen';
 import { formatLongDay, todayInParis } from '@/lib/paris-day';
 import { acceptsResponses } from '@/lib/poll-rules';
 import { readDeviceTokenHash } from '@/server/auth/device';
@@ -46,10 +47,13 @@ export default async function PollPage({ params, searchParams }: { params: Param
   const created = isOwner && query.cree === '1';
   // Les réponses à modérer : lues pour le SEUL créateur, filtre dans la requête.
   const moderated = isOwner && user ? await listResponsesForOwner(user.id, poll.id) : [];
+  // Le créateur et un répondant connecté retrouvent ce sondage dans « Mes sondages ».
+  const listed = user !== null && (isOwner || own !== null);
 
   return (
     <article className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-10 sm:px-6 sm:py-14">
       <LivePoll publicId={poll.publicId} />
+      {listed ? <MarkSeen publicId={poll.publicId} version={poll.activityAt.toISOString()} /> : null}
 
       {created ? (
         <section aria-labelledby="sondage-cree" className="surface-raised flex flex-col gap-4 p-5 sm:p-6">

@@ -166,6 +166,9 @@ export const deleteResponseSchema = z.object({
   responseId: z.uuid('Réponse introuvable.'),
 });
 
+/** La version d'un sondage qu'une page vient d'afficher (décision 034). */
+export const markPollSeenSchema = z.object({ publicId: publicIdSchema, version: z.iso.datetime() });
+
 /* -------------------------------------------------------------------------- */
 /* Réponses                                                                    */
 /* -------------------------------------------------------------------------- */

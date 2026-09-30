@@ -23,7 +23,7 @@ Départ vers Google. Pose le cookie signé `dp_google` (`HttpOnly`, `Secure`, 10
 ## `GET /api/s/{publicId}/flux` — flux en direct (SSE)
 
 - Public. `publicId` inconnu ⇒ 404 (le navigateur ne relance pas).
-- Au-delà de 6 flux simultanés pour l'adresse ⇒ 429.
+- Au-delà de 6 flux simultanés pour l'adresse, tous flux confondus ⇒ 429.
 - En-têtes : `Content-Type: text/event-stream; charset=utf-8`,
   `Cache-Control: private, no-store, no-transform`, `X-Accel-Buffering: no`.
 - Messages :
@@ -49,6 +49,16 @@ data: {"kind":"responses","at":"2026-09-30T14:02:11.412Z"}
 - Aucune donnée métier dans un événement : la page appelle `router.refresh()` et le rendu
   serveur relit la base. À chaque `ready` qui suit une coupure, la page se relit aussi.
 - Battement `: ping` toutes les 25 s ; fermeture après 55 min, le navigateur rouvre seul.
+
+## `GET /api/mes-sondages/flux` — flux en direct de « Mes sondages » (SSE)
+
+- Session requise ; sans session ⇒ 404 (le navigateur ne relance pas).
+- Annonce les changements des sondages créés par le compte ou auxquels il a répondu avec lui,
+  lus à l'ouverture du flux ; la page le rouvre quand sa liste change (FR-044).
+- Mêmes en-têtes, messages, `kind`, battement, durée de vie et limite par adresse que le flux
+  d'un sondage. Un événement ne dit pas quel sondage a changé : la page se relit, et la
+  bordure « du nouveau » apparaît. La page se relit aussi quand on revient sur l'onglet, pour
+  effacer la bordure d'un sondage lu dans un autre onglet.
 
 ## `POST /api/maintenance`
 

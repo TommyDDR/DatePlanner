@@ -38,6 +38,20 @@ async function fixture(): Promise<Fixture> {
       votes: { create: [{ pollDayId: poll.days[0]!.id }] },
     },
   });
+  // Le sondage d'un autre, auquel le créateur a répondu : la seconde liste de
+  // « Mes sondages », avec sa bordure « du nouveau ».
+  const other = await db.poll.create({
+    data: {
+      publicId: randomBytes(16).toString('base64url'),
+      owner: { create: { email: `autre-${Date.now()}-${randomBytes(3).toString('hex')}@exemple.test`, displayName: 'Alice' } },
+      title: 'Chez Alice',
+      days: { create: [{ day: new Date(`${dayFromToday(5)}T00:00:00Z`) }] },
+    },
+    include: { days: true },
+  });
+  await db.response.create({
+    data: { pollId: other.id, userId: owner.id, votes: { create: [{ pollDayId: other.days[0]!.id }] } },
+  });
   return { ownerId: owner.id, publicId };
 }
 

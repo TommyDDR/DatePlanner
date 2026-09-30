@@ -134,6 +134,14 @@ model Poll {
   /// Réponses créées après cet instant = nouvelles pour le prochain résumé.
   ownerDigestCursor DateTime  @default(now()) @map("owner_digest_cursor")
 
+  /// Dernier changement visible des participants : réponse, contenu, jours,
+  /// état. Une version plus qu'une heure : chaque changement la fait avancer
+  /// d'au moins une milliseconde (`src/server/polls/news.ts`).
+  activityAt  DateTime  @default(now()) @map("activity_at")
+  /// La valeur de `activityAt` que le créateur a vue en dernier ; `null` :
+  /// jamais vue. Plus petite que `activityAt` : du nouveau pour lui.
+  ownerSeenAt DateTime? @map("owner_seen_at")
+
   closedAt  DateTime? @map("closed_at")
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -168,6 +176,9 @@ model Response {
   pseudonym       String?
   /// SHA-256 du cookie `dp_appareil` : réponse sans compte.
   deviceTokenHash String? @map("device_token_hash")
+  /// Réponse connectée : la valeur de `Poll.activityAt` que ce compte a vue
+  /// en dernier ; `null` : jamais vue, ou réponse sans compte.
+  seenAt          DateTime? @map("seen_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -177,6 +188,7 @@ model Response {
   votes Vote[]
 
   @@index([pollId, createdAt])
+  @@index([userId])
   @@map("response")
 }
 

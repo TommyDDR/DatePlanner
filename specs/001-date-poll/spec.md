@@ -37,6 +37,7 @@
 - Q: Le service doit-il envoyer des emails quand un sondage bouge ? → A: Oui : au créateur pour les nouvelles réponses (regroupées, option du sondage activée par défaut) ; aux répondants connectés à l'annonce de la date retenue.
 - Q: Un répondant connecté dont l'appareil porte déjà une réponse anonyme au même sondage, que voit-il ? → A: Connecté, il voit le sondage avec son compte ; déconnecté, il le voit en mode anonyme avec la réponse de son appareil.
 - Q: Quand part le premier résumé des nouvelles réponses ? → A: 15 minutes après la première nouvelle réponse, puis au plus un toutes les 30 minutes.
+- Q: Que montre « Mes sondages » ? → A: Deux listes : les sondages créés et ceux d'autres comptes auxquels on a répondu connecté ; un sondage qui a changé depuis la dernière visite (réponse, modification du créateur) est signalé par une bordure orangée à gauche.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -191,7 +192,9 @@ l'utilisateur est connecté et peut créer un sondage.
 ### User Story 5 - Gérer ses sondages (Priority: P5)
 
 Un utilisateur connecté retrouve la liste de ses sondages (titre, nombre de
-répondants, date de création, état), rouvre le lien de chacun, modifie le titre
+répondants, date de création, état) et celle des sondages auxquels il a
+répondu, voit lesquels ont changé depuis sa dernière visite, rouvre le lien de
+chacun, modifie le titre
 ou la description, ajoute des jours, supprime une réponse indésirable, exige si
 besoin que les répondants soient connectés, clôt le sondage en désignant la
 date retenue, et peut supprimer un sondage.
@@ -243,6 +246,16 @@ figurent avec leur nombre de répondants ; en supprimer un : son lien répond
     ont répondu, **When** le créateur le clôt en désignant une date retenue,
     **Then** les trois répondants connectés reçoivent un email annonçant cette
     date.
+13. **Given** un utilisateur connecté qui a répondu avec son compte au sondage
+    d'un autre, **When** il ouvre « Mes sondages », **Then** il le voit dans
+    la liste « Auxquels j'ai répondu », avec son titre, le nom de son
+    créateur, son nombre de répondants, son état et sa date retenue.
+14. **Given** un sondage de la page « Mes sondages » d'un utilisateur, **When**
+    quelqu'un d'autre y répond, modifie ou retire sa réponse, ou que le
+    créateur en change le titre, la description, les jours, l'état ou la date
+    retenue, **Then** le sondage porte une bordure orangée à gauche dans sa
+    liste jusqu'à ce que l'utilisateur l'ouvre ; ses propres changements ne le
+    font jamais.
 
 ---
 
@@ -428,7 +441,10 @@ en sombre ; basculer en clair, recharger : il reste clair.
 
 - **FR-024**: Un utilisateur connecté DOIT pouvoir lister ses sondages avec
   leur titre, leur nombre de répondants, leur date de création, leur état
-  (ouvert ou clos) et, le cas échéant, leur date retenue.
+  (ouvert ou clos) et, le cas échéant, leur date retenue. Une seconde liste
+  DOIT montrer, avec les mêmes informations et le nom de leur créateur, les
+  sondages d'autres comptes auxquels il a répondu avec son compte ; une
+  réponse donnée sans compte n'y figure pas.
 - **FR-025**: Seul le créateur DOIT pouvoir modifier le titre, la
   description et les jours proposés (FR-027) d'un sondage, le clore ou le
   rouvrir (FR-026), ou le supprimer (après confirmation).
@@ -453,6 +469,14 @@ en sombre ; basculer en clair, recharger : il reste clair.
   option refuse toute nouvelle réponse et toute modification sans compte ; les
   réponses sans compte déjà données restent affichées, leur auteur peut encore
   les retirer, et le créateur peut les supprimer.
+- **FR-044**: Dans « Mes sondages », un sondage DOIT être signalé par une
+  bordure orangée à gauche, annoncée « du nouveau » aux lecteurs d'écran, quand
+  il a changé depuis que l'utilisateur l'a vu pour la dernière fois : réponse donnée, modifiée, retirée ou supprimée, titre, description,
+  jours, état ou date retenue changés. L'indication apparaît sans recharger
+  « Mes sondages », et disparaît dès qu'il affiche la page du sondage, y
+  compris par la mise à jour en direct. Les changements
+  qu'il fait lui-même, et ceux des options (compte exigé, résumés par email),
+  ne la déclenchent pas.
 
 **Notifications par email**
 
@@ -509,13 +533,16 @@ en sombre ; basculer en clair, recharger : il reste clair.
   identifiant public du lien de partage, date de création, état (ouvert ou
   clos), date retenue facultative (un des jours proposés, seulement quand le
   sondage est clos), exigence d'un compte pour répondre (oui ou non, non par
-  défaut), notification du créateur par email (oui ou non, oui par défaut).
+  défaut), notification du créateur par email (oui ou non, oui par défaut),
+  version de son dernier changement visible et dernière version vue par son
+  créateur.
 - **Jour proposé**: une date calendaire (sans heure) proposée par le créateur,
   rattachée à un Sondage. Un sondage en a au moins un.
 - **Réponse**: la participation d'une personne à un Sondage. Rattachée soit à
   un Utilisateur, soit à un pseudo saisi ; une réponse sans compte est
   reconnue par l'appareil et le navigateur qui l'ont envoyée. Date de
-  validation, date de dernière modification.
+  validation, date de dernière modification ; pour une réponse connectée, la
+  dernière version du sondage vue par son auteur.
 - **Vote**: le lien entre une Réponse et un Jour proposé qu'elle a retenu. Le
   nombre de votes d'un jour est le nombre de Réponses qui l'ont retenu.
 
