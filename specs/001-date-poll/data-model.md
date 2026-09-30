@@ -73,6 +73,8 @@ EmailOutbox, RateLimitHit, MaintenanceRun : tables techniques
 | notifyOwner | boolean | `true` par défaut (FR-041) |
 | ownerDigestSentAt | timestamp? | dernier résumé envoyé au créateur |
 | ownerDigestCursor | timestamp | réponses créées après cet instant = nouvelles pour le prochain résumé ; initialisé à la création |
+| activityAt | timestamp | version de ce que voit un participant (FR-044) : avance d'au moins 1 ms à chaque réponse donnée, modifiée, retirée ou supprimée et à chaque changement du titre, de la description, des jours, de l'état ou de la date retenue ; pas des options |
+| ownerSeenAt | timestamp? | dernière version vue par le créateur ; `null` : jamais vue ; plus petite que `activityAt` : « Du nouveau » |
 | closedAt | timestamp? | |
 | createdAt, updatedAt | timestamp | |
 
@@ -128,6 +130,7 @@ deux clics simultanés n'en appliquent qu'un.
 | userId | uuid? | → User, cascade ; réponse connectée |
 | pseudonym | text? | 1 à 50 caractères après retrait des espaces ; réponse sans compte |
 | deviceTokenHash | text? | SHA-256 du cookie `dp_appareil` ; réponse sans compte |
+| seenAt | timestamp? | réponse connectée : dernière version du sondage (`Poll.activityAt`) vue par son auteur (FR-044) ; `null` sinon |
 | createdAt | timestamp | sert au curseur du résumé |
 | updatedAt | timestamp | |
 
@@ -135,7 +138,8 @@ deux clics simultanés n'en appliquent qu'un.
   device_token_hash IS NULL) OR (user_id IS NULL AND pseudonym IS NOT NULL AND
   device_token_hash IS NOT NULL))`.
 - **Unicité** (FR-018) : `UNIQUE (poll_id, user_id)` et `UNIQUE (poll_id, device_token_hash)`
-  (index partiels sur les valeurs non nulles). Une seconde soumission du même répondant met à
+  (index partiels sur les valeurs non nulles) ; index sur `user_id` pour « Auxquels j'ai
+  répondu » (FR-024). Une seconde soumission du même répondant met à
   jour sa réponse au lieu d'en créer une autre.
 - **Nom affiché** : `User.displayName` (lu au rendu, donc à jour) pour une réponse connectée,
   sinon `pseudonym` ; une réponse connectée est marquée comme telle à l'affichage.
@@ -202,4 +206,5 @@ deux clics simultanés n'en appliquent qu'un.
 | Contrôle d'accès du créateur | clause `WHERE owner_id = :sessionUser` de chaque écriture sur un sondage ; zéro ligne touchée ⇒ « introuvable » |
 | Contrôle d'accès du répondant | connecté : `WHERE user_id = :sessionUser` seulement (la réponse anonyme de l'appareil est ignorée) ; sans session : `WHERE device_token_hash = :hash(cookie)` |
 | Jours valides | module pur (`lib/poll-rules`) + revérification transactionnelle |
+| « Du nouveau » (FR-044) | module pur (`lib/news`) ; version avancée et version vue écrites par `server/polls/news`, filtre sur le créateur ou le répondant dans l'écriture |
 | Conservation | module de configuration unique (`config/retention`) lu par la maintenance et la politique de confidentialité |

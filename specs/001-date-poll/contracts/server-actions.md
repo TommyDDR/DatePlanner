@@ -5,6 +5,11 @@ un schéma Zod partagé avec le formulaire, vérifie le droit **dans la requête
 consomme ses seaux de limitation (R11), publie l'événement « sondage changé » **après** la
 transaction, met les emails en file **dans** la transaction.
 
+Une action qui change ce que voit un participant (réponse, titre, description, jours, état,
+date retenue ; pas les options) fait aussi avancer, **après** la transaction, la version du
+sondage (`activityAt`), et note que son auteur connecté l'a vue : « Du nouveau » pour les
+autres, pas pour lui (FR-044, décision 034).
+
 ## Forme des résultats
 
 ```ts
@@ -61,6 +66,7 @@ Toutes exigent une session ; toute écriture porte `WHERE owner_id = :session` e
 |---|---|---|---|---|
 | `submitResponse` | `publicId`, `days: Day[]` (≥ 1), `pseudonym?` (1–50, exigé sans session) | réponse créée ou mise à jour — connecté : réponse du compte seulement (la réponse anonyme de l'appareil est ignorée) ; sans session : réponse de l'appareil ; cookie `dp_appareil` posé s'il manquait (sans session) ; résumé du créateur programmé si création | `VALIDATION` (jour non proposé ou passé ⇒ refus total), `POLL_CLOSED`, `ACCOUNT_REQUIRED`, `RATE_LIMITED`, `NOT_FOUND` | FR-013–019, FR-040, FR-041 |
 | `withdrawResponse` | `publicId` | connecté : réponse du compte supprimée ; sans session : réponse de l'appareil supprimée (y compris quand le compte est désormais exigé) | `POLL_CLOSED`, `NOT_FOUND` | FR-019 |
+| `markPollSeen` | `publicId`, `version` (date ISO : la version que la page affiche) | appelée par la page d'un sondage à chaque version affichée ; pour le créateur ou un répondant connecté, version vue portée à `min(version, activityAt)`, jamais reculée ; « Mes sondages » relue si elle a avancé. Sans session ou pour un autre compte, rien n'est écrit | aucune (sans effet) | FR-044 |
 
 Garanties : un pseudo n'est jamais accepté d'une session connectée (le nom vient du compte) ;
 la revérification de chaque jour a lieu dans la transaction qui écrit les votes (FR-016) ;

@@ -38,6 +38,7 @@ export async function createPoll(
   // pourtant la seule garantie, et un nouvel essai coûte une ligne.
   for (let attempt = 0; attempt < 3; attempt++) {
     const publicId = newPublicId();
+    const now = new Date();
     try {
       await prisma.poll.create({
         data: {
@@ -47,7 +48,10 @@ export async function createPoll(
           description: input.description,
           requireAccount: input.requireAccount,
           notifyOwner: input.notifyOwner,
-          ownerDigestCursor: new Date(),
+          ownerDigestCursor: now,
+          // Le créateur connaît ce qu'il vient de créer : rien de nouveau pour lui.
+          activityAt: now,
+          ownerSeenAt: now,
           days: { create: days.value.map((day) => ({ day: dateFromDay(day) })) },
         },
       });

@@ -60,6 +60,11 @@ export default function PrivacyPage() {
             aléatoire, jamais par l’identifiant lui-même.
           </li>
           <li>
+            « Mes sondages » : pour chaque sondage que vous avez créé ou auquel vous avez répondu avec votre compte,
+            le repère du dernier changement que vous y avez vu, pour signaler ce qui a changé depuis. Il disparaît
+            avec le sondage ou la réponse.
+          </li>
+          <li>
             Emails du service : destinataire, nature du message et date d’envoi, dans la file qui les achemine.
           </li>
           <li>
