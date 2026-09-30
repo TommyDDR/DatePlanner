@@ -8,7 +8,8 @@ import { formatLongDay } from '@/lib/paris-day';
  * où le toucher d'un jour reste réservé à la sélection, et les lecteurs
  * d'écran, qui y lisent tout d'un trait. Les jours y vont du plus voté au
  * moins voté, le plus proche d'abord à égalité : la réponse à « quel jour ? »
- * est en haut. La date retenue y est mise en tête de sa ligne.
+ * est en haut. Les plus votés portent la pastille dorée du calendrier. La
+ * date retenue y est mise en tête de sa ligne.
  */
 export function AvailabilityList({
   availability,
@@ -31,9 +32,12 @@ export function AvailabilityList({
               className={`grid h-6 min-w-6 place-items-center rounded-full px-1.5 font-mono text-xs font-semibold ${
                 day === retainedDay
                   ? 'bg-[var(--color-retained)] text-[var(--color-on-retained)]'
-                  : 'bg-[var(--color-vote)] text-[var(--color-on-vote)]'
+                  : count === best
+                    ? 'bg-[var(--color-leading)] text-[var(--color-on-leading)]'
+                    : 'bg-[var(--color-vote)] text-[var(--color-on-vote)]'
               }`}
               aria-hidden="true"
+              data-badge={day === retainedDay ? 'retained' : count === best ? 'leading' : 'vote'}
             >
               {count}
             </span>
