@@ -25,6 +25,33 @@ export type PollView = {
   retainedDay: string | null;
 };
 
+/** La réponse de ce répondant à ce sondage : son pseudo et ses jours. */
+export type OwnResponse = { pseudonym: string | null; days: string[] };
+
+/**
+ * La réponse de l'acteur courant (FR-019) : connecté, celle de son COMPTE ;
+ * sans session, celle de son appareil. La réponse anonyme d'un appareil n'est
+ * jamais relue pour un utilisateur connecté.
+ */
+export async function getOwnResponse(
+  pollId: string,
+  actor: { userId: string } | { deviceTokenHash: string } | null,
+): Promise<OwnResponse | null> {
+  if (!actor) return null;
+  const response = await prisma.response.findFirst({
+    where: {
+      pollId,
+      ...('userId' in actor ? { userId: actor.userId } : { deviceTokenHash: actor.deviceTokenHash, userId: null }),
+    },
+    select: { pseudonym: true, votes: { select: { pollDay: { select: { day: true } } } } },
+  });
+  if (!response) return null;
+  return {
+    pseudonym: response.pseudonym,
+    days: response.votes.map((vote) => dayFromDate(vote.pollDay.day)).sort(),
+  };
+}
+
 export async function getPollByPublicId(publicId: string): Promise<PollView | null> {
   if (!isPublicId(publicId)) return null;
   const poll = await prisma.poll.findUnique({

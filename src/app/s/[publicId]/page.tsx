@@ -2,9 +2,12 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { SITE_URL } from '@/config/identity';
 import { CopyLink } from '@/components/copy-link';
-import { formatLongDay } from '@/lib/paris-day';
+import { formatLongDay, todayInParis } from '@/lib/paris-day';
+import { acceptsResponses } from '@/lib/poll-rules';
+import { readDeviceTokenHash } from '@/server/auth/device';
 import { getSessionUser } from '@/server/auth/session';
-import { getPollByPublicId } from '@/server/polls/read';
+import { getOwnResponse, getPollByPublicId } from '@/server/polls/read';
+import { ResponseForm } from './_sections/response-form';
 
 type Params = Promise<{ publicId: string }>;
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -37,6 +40,14 @@ export default async function PollPage({ params, searchParams }: { params: Param
   const user = await getSessionUser();
   const isOwner = user?.id === poll.ownerId;
   const shareUrl = `${SITE_URL}/s/${poll.publicId}`;
+  const today = todayInParis(new Date());
+
+  // Connecté : la réponse du compte ; sans session : celle de l'appareil.
+  const deviceTokenHash = user ? null : await readDeviceTokenHash();
+  const own = await getOwnResponse(
+    poll.id,
+    user ? { userId: user.id } : deviceTokenHash ? { deviceTokenHash } : null,
+  );
 
   return (
     <article className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-10 sm:px-6 sm:py-14">
@@ -59,6 +70,22 @@ export default async function PollPage({ params, searchParams }: { params: Param
           <p className="max-w-2xl whitespace-pre-line text-[var(--color-text-muted)]">{poll.description}</p>
         ) : null}
       </header>
+
+      <section aria-labelledby="votre-reponse" className="surface flex flex-col gap-5 p-5 sm:p-6">
+        <h2 id="votre-reponse" className="text-lg font-semibold">
+          {own ? 'Votre réponse' : 'Répondre'}
+        </h2>
+        <ResponseForm
+          publicId={poll.publicId}
+          pollDays={poll.days}
+          today={today}
+          accepting={acceptsResponses(poll.status, poll.days, today)}
+          closed={poll.status === 'CLOSED'}
+          requireAccount={poll.requireAccount}
+          user={user ? { displayName: user.displayName } : null}
+          existing={own}
+        />
+      </section>
 
       <section aria-labelledby="jours-proposes" className="flex flex-col gap-4">
         <h2 id="jours-proposes" className="text-lg font-semibold">
