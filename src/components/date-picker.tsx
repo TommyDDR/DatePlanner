@@ -613,7 +613,7 @@ export function DatePicker({
                 key={index}
                 role="columnheader"
                 aria-label={weekday.long}
-                className="grid h-8 place-items-center font-mono text-[0.7rem] uppercase text-[var(--color-text-faint)]"
+                className="grid h-8 place-items-center font-mono text-[0.7rem] uppercase text-[var(--color-text-subtle)]"
               >
                 {weekday.short}
               </span>
@@ -630,12 +630,12 @@ export function DatePicker({
                   onClick={() => commit(cycleGroup(marks, week.days, count, rules))}
                   aria-label={`Faire avancer la semaine ${week.week}`}
                   title={`Toute la semaine ${week.week}`}
-                  className="grid h-8 w-7 place-items-center rounded-full font-mono text-[0.6rem] text-[var(--color-text-faint)] transition-colors hover:bg-[var(--color-ink-raised)] hover:text-[var(--color-ember)]"
+                  className="grid h-8 w-7 place-items-center rounded-full font-mono text-[0.6rem] text-[var(--color-text-subtle)] transition-colors hover:bg-[var(--color-ink-raised)] hover:text-[var(--color-ember)]"
                 >
                   {week.week}
                 </button>
               ) : (
-                <span className="font-mono text-[0.6rem] text-[var(--color-text-faint)]">{week.week}</span>
+                <span className="font-mono text-[0.6rem] text-[var(--color-text-subtle)]">{week.week}</span>
               )}
             </span>
             {week.days.map((day, column) => {
@@ -1085,7 +1085,7 @@ function VotersTooltip({ id, day, badge, column }: { id: string; day: Day; badge
         ))}
       </ul>
       {others > 0 ? (
-        <p className="mt-1 text-[var(--color-text-faint)]">
+        <p className="mt-1 text-[var(--color-text-subtle)]">
           et {others} autre{others > 1 ? 's' : ''}
         </p>
       ) : null}

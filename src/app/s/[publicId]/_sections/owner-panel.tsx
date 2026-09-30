@@ -260,7 +260,7 @@ function DaysSection({ publicId, days, votesByDay, retainedDay, today }: Props) 
             <li key={day} className="flex flex-wrap items-center justify-between gap-2">
               <span className="first-letter:uppercase">
                 {formatLongDay(day)}
-                <span className="ml-2 text-sm text-[var(--color-text-faint)]">{votes > 0 ? voteCountLabel(votes) : 'aucun vote'}</span>
+                <span className="ml-2 text-sm text-[var(--color-text-subtle)]">{votes > 0 ? voteCountLabel(votes) : 'aucun vote'}</span>
               </span>
               {removable ? (
                 <ActionForm action={removePollDayAction} className="flex items-center gap-2">

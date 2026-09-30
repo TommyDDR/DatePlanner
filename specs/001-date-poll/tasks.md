@@ -274,13 +274,13 @@ Projet unique à la racine (plan.md) : `src/`, `prisma/`, `tests/unit/`, `tests/
 
 ### Tests for User Story 7 ⚠️
 
-- [ ] T107 [P] [US7] Écrire `tests/unit/theme.test.ts` (porté) : seules `light` et `dark` sont relues du stockage
-- [ ] T108 [P] [US7] Écrire `e2e/theme.spec.ts` : système sombre avec JavaScript désactivé ⇒ fond sombre (pas de dépendance au script) ; choix clair conservé après rechargement avec système sombre ; premier rendu déjà au bon thème (attribut posé avant hydratation) ; contraste des pastilles et textes vérifié par axe dans les deux thèmes
+- [X] T107 [P] [US7] Écrire `tests/unit/theme.test.ts` (porté) : seules `light` et `dark` sont relues du stockage
+- [X] T108 [P] [US7] Écrire `e2e/theme.spec.ts` : système sombre avec JavaScript désactivé ⇒ fond sombre (pas de dépendance au script) ; choix clair conservé après rechargement avec système sombre ; premier rendu déjà au bon thème (attribut posé avant hydratation) ; contraste des pastilles et textes vérifié par axe dans les deux thèmes
 
 ### Implementation for User Story 7
 
-- [ ] T109 [P] [US7] Porter `src/lib/theme.ts` (`THEME_INIT_SCRIPT`, clé `dp-theme`, `readStoredTheme`)
-- [ ] T110 [US7] Porter `src/components/theme-script.tsx`, `src/components/theme-store.ts` et `src/components/theme-toggle.tsx` (deux positions) et les brancher dans `src/app/layout.tsx` (script dans le `<head>` avec le nonce, bascule dans l'en-tête)
+- [X] T109 [P] [US7] Porter `src/lib/theme.ts` (`THEME_INIT_SCRIPT`, clé `dp-theme`, `readStoredTheme`)
+- [X] T110 [US7] Porter `src/components/theme-script.tsx`, `src/components/theme-store.ts` et `src/components/theme-toggle.tsx` (deux positions) et les brancher dans `src/app/layout.tsx` (script dans le `<head>` avec le nonce, bascule dans l'en-tête)
 
 **Checkpoint**: toutes les user stories fonctionnent
 
