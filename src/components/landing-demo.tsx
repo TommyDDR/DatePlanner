@@ -4,9 +4,10 @@
  *
  * La grille d'un mois se trace comme un trait de découpe - la tête du laser
  * court sur le bord -, les jours proposés s'allument, les pastilles de votes
- * apparaissent et l'une d'elles compte, puis la date retenue s'illumine en
- * jade. Rendue au serveur, décorative (`aria-hidden`) : ce qu'elle montre est
- * dit en toutes lettres dans la légende voisine.
+ * apparaissent et l'une d'elles compte jusqu'à passer en tête - elle se dore -,
+ * puis la date retenue s'illumine en jade. Rendue au serveur, décorative
+ * (`aria-hidden`) : ce qu'elle montre est dit en toutes lettres dans la
+ * légende voisine.
  */
 
 const COLS = 7;
@@ -151,7 +152,9 @@ export function LandingDemo() {
                   delay={delay + 0.9 + (day % 3) * 0.25}
                   replacedAt={day === RETAINED ? 3.3 : undefined}
                 />
-                {day === RETAINED ? <Badge cx={cx + CELL_W - 10} cy={cy + 10} count={votes} delay={3.3} /> : null}
+                {day === RETAINED ? (
+                  <Badge cx={cx + CELL_W - 10} cy={cy + 10} count={votes} delay={3.3} tone="leading" />
+                ) : null}
               </g>
             );
           })}
@@ -179,7 +182,7 @@ export function LandingDemo() {
                 >
                   {RETAINED}
                 </text>
-                <Badge cx={x(col) + CELL_W - 10} cy={y(row) + 10} count={5} delay={0} tone="retained" />
+                <Badge cx={x(col) + CELL_W - 10} cy={y(row) + 10} count={5} delay={0} tone="leading" />
               </g>
             );
           })()}
@@ -206,7 +209,8 @@ function Badge({
   delay: number;
   /** Instant où une pastille plus à jour la remplace : elle s'efface alors. */
   replacedAt?: number;
-  tone?: 'vote' | 'retained';
+  /** `leading` : la pastille dorée du jour le plus voté, comme dans le calendrier. */
+  tone?: 'vote' | 'leading';
 }) {
   const pop = (
     <g className="demo-pop" style={{ '--delay': `${delay}s` } as React.CSSProperties}>
@@ -214,7 +218,7 @@ function Badge({
         cx={cx}
         cy={cy}
         r="9"
-        fill={tone === 'retained' ? 'var(--color-on-retained)' : 'var(--color-vote)'}
+        fill={tone === 'leading' ? 'var(--color-leading)' : 'var(--color-vote)'}
         stroke="var(--color-ink-raised)"
         strokeWidth="2"
       />
@@ -225,7 +229,7 @@ function Badge({
         fontSize="10"
         fontWeight="700"
         fontFamily="var(--font-mono)"
-        fill={tone === 'retained' ? 'var(--color-retained)' : 'var(--color-on-vote)'}
+        fill={tone === 'leading' ? 'var(--color-on-leading)' : 'var(--color-on-vote)'}
       >
         {count}
       </text>
