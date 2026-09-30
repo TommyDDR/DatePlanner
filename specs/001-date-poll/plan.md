@@ -67,7 +67,7 @@ Constitution v1.0.0 (`.specify/memory/constitution.md`).
 | | Google : adresse vérifiée, reconnaissance par identifiant | ✅ | R5, plus la protection contre la pré-appropriation propre à ce service |
 | | aucun secret versionné | ✅ | `.env` hors dépôt, `.env.example` sans valeur, `EnvironmentFile` (R19) |
 | II. Le serveur décide | règles d'interface revérifiées | ✅ | jours, clôture, compte exigé, retrait de jour revérifiés en transaction ([data-model: Vote, PollDay](data-model.md)) |
-| | écritures concurrentes gardées | ✅ | écritures conditionnelles, `NO ACTION` sur `Vote → PollDay` (compatible avec les cascades), index d'unicité des réponses et du résumé en attente |
+| | écritures concurrentes gardées | ✅ | écritures conditionnelles, `Vote → PollDay` en contrainte différée (compatible avec les cascades), index d'unicité des réponses et du résumé en attente |
 | | le direct ne transporte rien de lisible | ✅ | événements `{ kind, at }` seulement, relecture par rendu serveur (R8) |
 | III. Logique pure, testée | règles dans des modules purs | ✅ | `lib/date-picker`, `lib/poll-rules`, `lib/poll-state`, `lib/digest`, `lib/availability`, `lib/paris-day` ; durées dans `config/retention` |
 | | chaque FR et invariant testé, vraie base, bout en bout | ✅ | R16 ; test des jetons visuels (FR-031), test d'hygiène du dépôt (aucun secret versionné) ; matrice FR → test exigée par les tâches |

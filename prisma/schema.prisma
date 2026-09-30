@@ -1,0 +1,263 @@
+// Schéma de base de données - DatePlanner, sondages de dates.
+//
+// Conventions :
+//  - identifiants internes en UUID, jamais exposés dans une URL : un sondage se
+//    désigne par son `publicId`, aléatoire et impossible à deviner ;
+//  - toutes les dates-heures sont en UTC ; un JOUR proposé est une colonne
+//    `DATE`, sans heure ni fuseau ;
+//  - tables et colonnes en snake_case (`@@map`, `@map`) : les contraintes
+//    écrites à la main dans les migrations se lisent sans guillemets.
+//
+// Les contraintes que Prisma ne sait pas déclarer (CHECK, index partiels, clé
+// étrangère composite de la date retenue) sont ajoutées dans la migration
+// initiale, `prisma/migrations/0001_init/migration.sql`.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Comptes
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  /// Unique, stocké en minuscules, sans espaces ; 3 à 254 caractères.
+  email         String    @unique
+  /// 1 à 60 caractères après retrait des espaces ; affiché aux autres.
+  displayName   String    @map("display_name")
+  /// argon2id ; `null` pour un compte né de Google, ou dont le mot de passe a
+  /// été effacé au rattachement d'une identité Google (adresse jamais prouvée).
+  passwordHash  String?   @map("password_hash")
+  /// Identifiant `sub` de Google. C'est LUI qui reconnaît, jamais l'adresse.
+  googleId      String?   @unique @map("google_id")
+  /// Posé quand Google a vérifié l'adresse ou qu'un lien envoyé à l'adresse a
+  /// été utilisé ; jamais réécrit une fois posé.
+  emailProvedAt DateTime? @map("email_proved_at")
+
+  failedLoginCount Int       @default(0) @map("failed_login_count")
+  lockedUntil      DateTime? @map("locked_until")
+
+  /// Mis à jour au plus une fois par jour ; base de la conservation (3 ans).
+  lastActiveAt       DateTime  @default(now()) @map("last_active_at")
+  inactivityWarnedAt DateTime? @map("inactivity_warned_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  sessions    Session[]
+  resetTokens PasswordResetToken[]
+  polls       Poll[]
+  responses   Response[]
+
+  @@map("user")
+}
+
+model Session {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  /// SHA-256 du jeton du cookie : une fuite de la base ne rejoue aucune session.
+  tokenHash  String   @unique @map("token_hash")
+  /// Plafond absolu : `createdAt` + 90 jours.
+  createdAt  DateTime @default(now()) @map("created_at")
+  /// Échéance glissante : + 30 jours depuis la dernière activité.
+  expiresAt  DateTime @map("expires_at")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("session")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  /// + 1 heure.
+  expiresAt DateTime  @map("expires_at")
+  /// Usage unique : consommé par une écriture conditionnelle `used_at IS NULL`.
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_token")
+}
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Sondages
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+enum PollStatus {
+  OPEN
+  CLOSED
+
+  @@map("poll_status")
+}
+
+model Poll {
+  id       String @id @default(uuid()) @db.Uuid
+  /// 22 caractères base64url, 128 bits aléatoires : le lien de partage.
+  publicId String @unique @map("public_id")
+  ownerId  String @map("owner_id") @db.Uuid
+
+  /// Obligatoire, 1 à 120 caractères après retrait des espaces.
+  title       String
+  /// 0 à 2 000 caractères ; vide enregistré comme `null`.
+  description String?
+
+  status         PollStatus @default(OPEN)
+  /// Un des jours du sondage, seulement quand il est clos (CHECK et clé
+  /// étrangère composite dans la migration).
+  retainedDayId  String?    @map("retained_day_id") @db.Uuid
+  requireAccount Boolean    @default(false) @map("require_account")
+  notifyOwner    Boolean    @default(true) @map("notify_owner")
+
+  ownerDigestSentAt DateTime? @map("owner_digest_sent_at")
+  /// Réponses créées après cet instant = nouvelles pour le prochain résumé.
+  ownerDigestCursor DateTime  @default(now()) @map("owner_digest_cursor")
+
+  closedAt  DateTime? @map("closed_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  days      PollDay[]
+  responses Response[]
+
+  @@index([ownerId, createdAt])
+  @@map("poll")
+}
+
+model PollDay {
+  id     String   @id @default(uuid()) @db.Uuid
+  pollId String   @map("poll_id") @db.Uuid
+  day    DateTime @db.Date
+
+  poll  Poll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes Vote[]
+
+  @@unique([pollId, day])
+  @@unique([pollId, id])
+  @@map("poll_day")
+}
+
+model Response {
+  id              String  @id @default(uuid()) @db.Uuid
+  pollId          String  @map("poll_id") @db.Uuid
+  /// Réponse connectée.
+  userId          String? @map("user_id") @db.Uuid
+  /// Réponse sans compte : 1 à 50 caractères après retrait des espaces.
+  pseudonym       String?
+  /// SHA-256 du cookie `dp_appareil` : réponse sans compte.
+  deviceTokenHash String? @map("device_token_hash")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  poll  Poll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  user  User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  votes Vote[]
+
+  @@index([pollId, createdAt])
+  @@map("response")
+}
+
+model Vote {
+  responseId String @map("response_id") @db.Uuid
+  /// NoAction, rendue DIFFÉRÉE par la migration initiale : un jour voté ne se
+  /// retire pas, mais la cascade d'un sondage ou d'un compte supprimé passe.
+  pollDayId  String @map("poll_day_id") @db.Uuid
+
+  response Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  pollDay  PollDay  @relation(fields: [pollDayId], references: [id], onDelete: NoAction)
+
+  @@id([responseId, pollDayId])
+  @@index([pollDayId])
+  @@map("vote")
+}
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Tables techniques
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+enum EmailTemplate {
+  PASSWORD_RESET
+  OWNER_DIGEST
+  RETAINED_DAY
+  INACTIVITY_WARNING
+
+  @@map("email_template")
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  // Devenu inutile avant son départ (sondage supprimé, résumé vide).
+  CANCELLED
+  FAILED
+
+  @@map("email_status")
+}
+
+model EmailOutbox {
+  id        String        @id @default(uuid()) @db.Uuid
+  to        String
+  template  EmailTemplate
+  /// Identifiants seulement : le contenu est rendu au moment de l'envoi.
+  payload   Json          @default("{}")
+  pollId    String?       @map("poll_id") @db.Uuid
+  status    EmailStatus   @default(PENDING)
+  sendAfter DateTime      @default(now()) @map("send_after")
+  /// ≤ 5, puis `FAILED`.
+  attempts  Int           @default(0)
+  lastError String?       @map("last_error")
+  createdAt DateTime      @default(now()) @map("created_at")
+  sentAt    DateTime?     @map("sent_at")
+
+  @@index([status, sendAfter])
+  @@index([pollId])
+  @@map("email_outbox")
+}
+
+model RateLimitHit {
+  id     BigInt   @id @default(autoincrement())
+  bucket String
+  key    String
+  weight Int      @default(1)
+  at     DateTime @default(now())
+
+  @@index([bucket, key, at])
+  @@index([at])
+  @@map("rate_limit_hit")
+}
+
+model MaintenanceRun {
+  id        Int      @id @default(1)
+  lastRunAt DateTime @map("last_run_at")
+
+  @@map("maintenance_run")
+}

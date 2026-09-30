@@ -110,12 +110,14 @@ deux clics simultanés n'en appliquent qu'un.
 - **Création et ajout** (FR-010, FR-011, FR-027) : `day ≥ aujourd'hui (Paris)` ; au plus 366
   jours par sondage, vérifié dans la même transaction que l'insertion.
 - **Retrait** (FR-027) : `DELETE … WHERE id = ? AND NOT EXISTS (vote sur ce jour)` et le sondage
-  garde au moins un jour ; la clé étrangère `Vote → PollDay` est en `NO ACTION` et celle de
-  `retainedDayId` aussi : même une course perdue ne peut pas effacer un vote ni la date
-  retenue. `NO ACTION` et non `RESTRICT` : PostgreSQL vérifie `RESTRICT` sur-le-champ, au
-  milieu de la cascade d'un sondage ou d'un compte supprimé, selon l'ordre des cascades ;
-  `NO ACTION` vérifie en fin d'instruction, quand les votes supprimés par la cascade sont
-  déjà partis.
+  garde au moins un jour ; la clé étrangère `Vote → PollDay` et celle de `retainedDayId`
+  sont en `NO ACTION DEFERRABLE INITIALLY DEFERRED` : même une course perdue ne peut pas
+  effacer un vote ni la date retenue. Différées, et non simplement `NO ACTION` ou
+  `RESTRICT` : PostgreSQL exécute chaque cascade comme une instruction à part et y vérifie
+  une contrainte ordinaire avant que la cascade voisine (réponses, puis votes) ait eu lieu ;
+  la suppression d'un sondage ou d'un compte échouerait. Vérifiées à la validation de la
+  transaction, elles laissent passer la cascade et refusent toujours le retrait direct d'un
+  jour voté (vérifié par `tests/integration/schema-constraints.test.ts`).
 
 ## Response (Réponse)
 
@@ -145,7 +147,7 @@ deux clics simultanés n'en appliquent qu'un.
 | Champ | Type | Règles |
 |---|---|---|
 | responseId | uuid | → Response, cascade |
-| pollDayId | uuid | → PollDay, **no action** (voir PollDay) |
+| pollDayId | uuid | → PollDay, **no action, différée** (voir PollDay) |
 
 - Clé primaire `(responseId, pollDayId)`.
 - **Validité** (FR-015, FR-016) : à l'enregistrement, chaque jour doit appartenir au sondage de

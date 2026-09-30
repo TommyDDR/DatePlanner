@@ -1,0 +1,23 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+coverage/
+.env
+.env.local
+.env*.local
+.env.test
+!.env.example
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+next-env.d.ts
+# Cache incrémental de TypeScript : régénéré par tsc, salit l'arbre à chaque build.
+*.tsbuildinfo
+# Sorties de Playwright : rapport HTML, traces et captures des échecs.
+playwright-report/
+test-results/
