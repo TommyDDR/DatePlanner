@@ -4,6 +4,7 @@ import { fail, ok, type ActionResult } from '@/lib/action-result';
 import { prisma } from '@/server/db/client';
 import { enqueueEmail } from '@/server/notifications/outbox';
 import { consume, reset as resetBucket } from '@/server/ratelimit';
+import type { GoogleIdentity } from './google';
 import { fakeVerify, hashPassword, verifyOptionalPassword } from './password';
 import { createSession, destroyAllSessions, destroySession, hashToken, issueToken } from './session';
 
@@ -111,6 +112,90 @@ function lockoutFor(failedLoginCount: number): Date | null {
 
 export async function logout(): Promise<void> {
   await destroySession();
+}
+
+/* -------------------------------------------------------------------------- */
+/* Connexion par compte Google                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Ouvre la session d'une identité rapportée par Google (FR-003, research.md R5).
+ *
+ * Trois chemins, dans cet ordre, et l'ordre est la règle :
+ *
+ *  1. l'IDENTIFIANT Google est déjà connu : c'est ce compte. Google laisse
+ *     changer l'adresse d'un compte, et reconnaître à l'adresse ferait passer
+ *     d'un compte à l'autre le jour où deux personnes échangent la leur ;
+ *  2. l'adresse - prouvée par Google, `parseIdToken` l'a exigé - porte un
+ *     compte local : l'identité s'y RATTACHE, sans doublon. Si cette adresse
+ *     n'avait JAMAIS été prouvée, le mot de passe du compte est effacé et ses
+ *     autres sessions fermées : sans cela, un tiers qui aurait inscrit
+ *     l'adresse d'autrui garderait l'accès au compte après que le vrai
+ *     titulaire s'y est connecté par Google (pré-appropriation) ;
+ *  3. personne : le compte est créé, sans mot de passe.
+ *
+ * Un compte qui porte DÉJÀ une autre identité Google n'est jamais repris : ce
+ * serait donner le compte au dernier arrivé. Le verrou progressif n'est pas
+ * opposé - il protège le MOT DE PASSE, qu'une identité Google ne devine pas -
+ * et les compteurs d'échec sont remis à zéro.
+ */
+export async function loginWithGoogle(
+  identity: GoogleIdentity,
+  ip: string,
+): Promise<ActionResult<{ userId: string }>> {
+  const limit = await consume('googleSigninPerIp', ip);
+  if (!limit.allowed) return fail({ code: 'RATE_LIMITED', retryAfterSeconds: limit.retryAfterSeconds });
+
+  const now = new Date();
+  const known = await prisma.user.findUnique({ where: { googleId: identity.googleId }, select: { id: true } });
+  if (known) {
+    await prisma.user.update({ where: { id: known.id }, data: { failedLoginCount: 0, lockedUntil: null } });
+    await prisma.user.updateMany({ where: { id: known.id, emailProvedAt: null }, data: { emailProvedAt: now } });
+    await createSession(known.id);
+    return ok({ userId: known.id });
+  }
+
+  const sameEmail = await prisma.user.findUnique({
+    where: { email: identity.email },
+    select: { id: true, googleId: true, emailProvedAt: true },
+  });
+  if (sameEmail) {
+    if (sameEmail.googleId !== null) return fail(AUTH_FAILED);
+    const unproven = sameEmail.emailProvedAt === null;
+    // `google_id IS NULL` dans la clause : deux retours simultanés n'en
+    // rattachent qu'un.
+    const linked = await prisma.user.updateMany({
+      where: { id: sameEmail.id, googleId: null },
+      data: {
+        googleId: identity.googleId,
+        failedLoginCount: 0,
+        lockedUntil: null,
+        ...(unproven ? { passwordHash: null, emailProvedAt: now } : {}),
+      },
+    });
+    if (linked.count === 0) return fail(AUTH_FAILED);
+    if (unproven) await destroyAllSessions(sameEmail.id);
+    await createSession(sameEmail.id);
+    return ok({ userId: sameEmail.id });
+  }
+
+  // Création : le seau des inscriptions n'est consommé qu'ici.
+  const signup = await consume('registerPerIp', ip);
+  if (!signup.allowed) return fail({ code: 'RATE_LIMITED', retryAfterSeconds: signup.retryAfterSeconds });
+  const created = await prisma.user.create({
+    data: {
+      email: identity.email,
+      displayName: identity.displayName,
+      // Aucun mot de passe : en inventer un ferait croire à un secret que
+      // personne ne connaît. Le titulaire s'en donne un par « mot de passe oublié ».
+      passwordHash: null,
+      googleId: identity.googleId,
+      emailProvedAt: now,
+    },
+    select: { id: true },
+  });
+  await createSession(created.id);
+  return ok({ userId: created.id });
 }
 
 /* -------------------------------------------------------------------------- */

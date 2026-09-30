@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { nextFromParam } from '@/lib/safe-redirect';
 import { getSessionUser } from '@/server/auth/session';
 import { AuthCard } from '../auth-card';
+import { GoogleButton } from '../google-button';
 import { RegisterForm } from './register-form';
 
 export const metadata = { title: 'Créer un compte' };
@@ -30,7 +31,10 @@ export default async function RegisterPage({ searchParams }: { searchParams: Sea
         </p>
       }
     >
-      <RegisterForm next={next} />
+      <div className="flex flex-col gap-4">
+        <GoogleButton next={next} />
+        <RegisterForm next={next} />
+      </div>
     </AuthCard>
   );
 }

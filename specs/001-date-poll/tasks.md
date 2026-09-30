@@ -79,7 +79,7 @@ Projet unique à la racine (plan.md) : `src/`, `prisma/`, `tests/unit/`, `tests/
 - [X] T024 [P] Créer `src/lib/validation.ts` : schémas Zod de chaque entrée de contracts/server-actions.md, construits sur `poll-rules`, messages en français ; `PublicId` = `^[A-Za-z0-9_-]{22}$`, `Day` = `^\d{4}-\d{2}-\d{2}$`
 - [X] T025 [P] Créer `src/lib/action-result.ts` : types `ActionResult<T>` et `ActionError` exactement comme dans contracts/server-actions.md, aides `ok()` et `fail()`
 - [X] T026 [P] Porter `src/lib/safe-redirect.ts` (`safeInternalPath`) et ses tests vers `tests/unit/safe-redirect.test.ts`
-- [X] T027 [P] Porter `src/lib/csp.ts` et `src/lib/https-redirect.ts` depuis laserit.fr (adresse `dateplanner.laserit.fr`, aucune origine tierce hormis `accounts.google.com` en `form-action`) avec leurs tests vers `tests/unit/csp.test.ts` et `tests/unit/https-redirect.test.ts`
+- [X] T027 [P] Porter `src/lib/csp.ts` et `src/lib/https-redirect.ts` depuis laserit.fr (adresse `dateplanner.laserit.fr`, aucune origine tierce ; `form-action 'self'` seul, le départ vers Google étant un lien) avec leurs tests vers `tests/unit/csp.test.ts` et `tests/unit/https-redirect.test.ts`
 - [X] T028 Créer `src/proxy.ts` (porté : un nonce par requête, en-tête CSP, `x-nonce`, et nouvelle pose du cookie `dp_session` présent à chaque navigation avec les options de `session-cookie.ts`, pour que le cookie suive la prolongation glissante de la base) et compléter `next.config.ts` : redirections HTTPS de `https-redirect`, en-têtes `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` restrictive, `frame-ancestors 'none'`
 - [X] T029 [P] Porter `src/components/csp-nonce.tsx` (`CspNonceProvider`, `useCspNonce`)
 
@@ -197,16 +197,16 @@ Projet unique à la racine (plan.md) : `src/`, `prisma/`, `tests/unit/`, `tests/
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T078 [P] [US4] Écrire `tests/unit/google-token.test.ts` (porté) : jeton accepté seulement si `aud` = notre client, `iss` Google, non expiré, `email_verified` vrai
-- [ ] T079 [P] [US4] Écrire `tests/unit/google-handshake.test.ts` (porté) : cookie signé relu, altération refusée, `state` différent refusé, `suite` analysée
-- [ ] T080 [P] [US4] Écrire `tests/integration/google-login.test.ts` : compte neuf créé sans mot de passe avec `emailProvedAt` ; reconnaissance par `googleId` même si l'adresse a changé ; rattachement à un compte local à adresse prouvée qui garde son mot de passe ; rattachement à un compte local à adresse NON prouvée ⇒ `passwordHash` effacé et toutes ses sessions fermées ; compte portant déjà un autre `googleId` jamais repris ; seau `googleSigninPerIp` distinct de `loginPerIp`
+- [X] T078 [P] [US4] Écrire `tests/unit/google-token.test.ts` (porté) : jeton accepté seulement si `aud` = notre client, `iss` Google, non expiré, `email_verified` vrai
+- [X] T079 [P] [US4] Écrire `tests/unit/google-handshake.test.ts` (porté) : cookie signé relu, altération refusée, `state` différent refusé, `suite` analysée
+- [X] T080 [P] [US4] Écrire `tests/integration/google-login.test.ts` : compte neuf créé sans mot de passe avec `emailProvedAt` ; reconnaissance par `googleId` même si l'adresse a changé ; rattachement à un compte local à adresse prouvée qui garde son mot de passe ; rattachement à un compte local à adresse NON prouvée ⇒ `passwordHash` effacé et toutes ses sessions fermées ; compte portant déjà un autre `googleId` jamais repris ; seau `googleSigninPerIp` distinct de `loginPerIp`
 
 ### Implementation for User Story 4
 
-- [ ] T081 [P] [US4] Porter `src/server/auth/google-handshake.ts` (cookie `dp_google` de 10 min signé avec `APP_SECRET`)
-- [ ] T082 [US4] Porter `src/server/auth/google.ts` (URL d'autorisation avec PKCE `S256`, échange du code, `parseIdToken`) et y écrire `loginWithGoogle` avec la protection contre la pré-appropriation de research.md R5
-- [ ] T083 [US4] Créer `src/app/api/connexion/google/route.ts` et `src/app/api/connexion/google/retour/route.ts` selon contracts/http-api.md (cookie toujours effacé, raisons `annule`, `refuse`, `adresse-non-verifiee`, `indisponible`)
-- [ ] T084 [US4] Porter `src/lib/google-signin-notice.ts` (raison ⇒ message en français) et ajouter le bouton Google et l'avis d'échec à `src/app/(auth)/connexion/page.tsx` et `src/app/(auth)/inscription/page.tsx`
+- [X] T081 [P] [US4] Porter `src/server/auth/google-handshake.ts` (cookie `dp_google` de 10 min signé avec `APP_SECRET`)
+- [X] T082 [US4] Porter `src/server/auth/google.ts` (URL d'autorisation avec PKCE `S256`, échange du code, `parseIdToken`) et y écrire `loginWithGoogle` avec la protection contre la pré-appropriation de research.md R5
+- [X] T083 [US4] Créer `src/app/api/connexion/google/route.ts` et `src/app/api/connexion/google/retour/route.ts` selon contracts/http-api.md (cookie toujours effacé, raisons `annule`, `refuse`, `adresse-non-verifiee`, `indisponible`)
+- [X] T084 [US4] Porter `src/lib/google-signin-notice.ts` (raison ⇒ message en français) et ajouter le bouton Google et l'avis d'échec à `src/app/(auth)/connexion/page.tsx` et `src/app/(auth)/inscription/page.tsx`
 
 **Checkpoint**: US4 fonctionne seule
 
