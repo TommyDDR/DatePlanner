@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { nextFromParam } from '@/lib/safe-redirect';
 import { getSessionUser } from '@/server/auth/session';
 import { AuthCard } from '../auth-card';
+import { GoogleButton } from '../google-button';
 import { RegisterForm } from './register-form';
 
 export const metadata = { title: 'Créer un compte' };
@@ -23,14 +24,17 @@ export default async function RegisterPage({ searchParams }: { searchParams: Sea
           Déjà un compte ?{' '}
           <Link
             href={next ? `/connexion?suite=${encodeURIComponent(next)}` : '/connexion'}
-            className="font-medium text-[var(--color-ember)] underline-offset-4 hover:underline"
+            className="font-medium text-[var(--color-ember)] underline underline-offset-4"
           >
             Se connecter
           </Link>
         </p>
       }
     >
-      <RegisterForm next={next} />
+      <div className="flex flex-col gap-4">
+        <GoogleButton next={next} />
+        <RegisterForm next={next} />
+      </div>
     </AuthCard>
   );
 }

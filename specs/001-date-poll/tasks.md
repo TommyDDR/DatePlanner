@@ -79,7 +79,7 @@ Projet unique à la racine (plan.md) : `src/`, `prisma/`, `tests/unit/`, `tests/
 - [X] T024 [P] Créer `src/lib/validation.ts` : schémas Zod de chaque entrée de contracts/server-actions.md, construits sur `poll-rules`, messages en français ; `PublicId` = `^[A-Za-z0-9_-]{22}$`, `Day` = `^\d{4}-\d{2}-\d{2}$`
 - [X] T025 [P] Créer `src/lib/action-result.ts` : types `ActionResult<T>` et `ActionError` exactement comme dans contracts/server-actions.md, aides `ok()` et `fail()`
 - [X] T026 [P] Porter `src/lib/safe-redirect.ts` (`safeInternalPath`) et ses tests vers `tests/unit/safe-redirect.test.ts`
-- [X] T027 [P] Porter `src/lib/csp.ts` et `src/lib/https-redirect.ts` depuis laserit.fr (adresse `dateplanner.laserit.fr`, aucune origine tierce hormis `accounts.google.com` en `form-action`) avec leurs tests vers `tests/unit/csp.test.ts` et `tests/unit/https-redirect.test.ts`
+- [X] T027 [P] Porter `src/lib/csp.ts` et `src/lib/https-redirect.ts` depuis laserit.fr (adresse `dateplanner.laserit.fr`, aucune origine tierce ; `form-action 'self'` seul, le départ vers Google étant un lien) avec leurs tests vers `tests/unit/csp.test.ts` et `tests/unit/https-redirect.test.ts`
 - [X] T028 Créer `src/proxy.ts` (porté : un nonce par requête, en-tête CSP, `x-nonce`, et nouvelle pose du cookie `dp_session` présent à chaque navigation avec les options de `session-cookie.ts`, pour que le cookie suive la prolongation glissante de la base) et compléter `next.config.ts` : redirections HTTPS de `https-redirect`, en-têtes `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` restrictive, `frame-ancestors 'none'`
 - [X] T029 [P] Porter `src/components/csp-nonce.tsx` (`CspNonceProvider`, `useCspNonce`)
 
@@ -170,20 +170,20 @@ Projet unique à la racine (plan.md) : `src/`, `prisma/`, `tests/unit/`, `tests/
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T067 [P] [US3] Écrire `tests/unit/availability.test.ts` : comptes et noms par jour, réponse connectée marquée, noms triés, au-delà de 20 votants « et N autres », jours sans vote absents
-- [ ] T068 [P] [US3] Écrire `tests/integration/live-stream.test.ts` : `publicId` inconnu ⇒ 404 ; événement d'un autre sondage non transmis ; message limité à `{ kind, at }` ; 7e flux simultané de la même adresse ⇒ 429 ; `submitResponse` et `withdrawResponse` publient `responses`
-- [ ] T069 [P] [US3] Écrire `e2e/live-updates.spec.ts` : deux contextes, B vote, A voit la pastille en moins de 5 s sans recharger ; infobulle au survol et au focus clavier ; liste « Qui est disponible ? » visible en largeur téléphone (375 px) ; sondage dont les jours s'étendent sur plusieurs mois ⇒ calendrier ouvert sur le mois du premier jour proposé à venir, mois porteurs de jours signalés (scénarios US3 1 à 5, cas limite « plusieurs mois », SC-003, SC-008)
+- [X] T067 [P] [US3] Écrire `tests/unit/availability.test.ts` : comptes et noms par jour, réponse connectée marquée, noms triés, au-delà de 20 votants « et N autres », jours sans vote absents
+- [X] T068 [P] [US3] Écrire `tests/integration/live-stream.test.ts` : `publicId` inconnu ⇒ 404 ; événement d'un autre sondage non transmis ; message limité à `{ kind, at }` ; 7e flux simultané de la même adresse ⇒ 429 ; `submitResponse` et `withdrawResponse` publient `responses`
+- [X] T069 [P] [US3] Écrire `e2e/live-updates.spec.ts` : deux contextes, B vote, A voit la pastille en moins de 5 s sans recharger ; infobulle au survol et au focus clavier ; liste « Qui est disponible ? » visible en largeur téléphone (375 px) ; sondage dont les jours s'étendent sur plusieurs mois ⇒ calendrier ouvert sur le mois du premier jour proposé à venir, mois porteurs de jours signalés (scénarios US3 1 à 5, cas limite « plusieurs mois », SC-003, SC-008)
 
 ### Implementation for User Story 3
 
-- [ ] T070 [P] [US3] Créer `src/lib/availability.ts` (construction des jours, comptes et noms à partir des votes ; troncature à 20 noms)
-- [ ] T071 [US3] Ajouter `getPollSynthesis(pollId)` à `src/server/polls/read.ts` : votes groupés par jour en une requête, nom = `User.displayName` pour une réponse connectée, `pseudonym` sinon
-- [ ] T072 [US3] Étendre `src/components/date-picker.tsx` : prop `badges` (pastille à aplat `--color-vote`, texte `--color-on-ember`, `aria-label` « N votes »), infobulle des votants au survol et au focus (`role="tooltip"`, `aria-describedby`), prop `markedMonths` signalée dans la navigation, prop `retainedDay` (aplat jade), prop `readOnly` (consultation : aucun jour ne se choisit, la navigation et le clavier restent) ; sans changer les comportements portés en T042
-- [ ] T073 [P] [US3] Créer `src/app/s/[publicId]/_sections/availability-list.tsx` : liste « Qui est disponible ? » par jour, nombre et noms, marque des réponses connectées
-- [ ] T074 [US3] Créer `src/app/api/s/[publicId]/flux/route.ts` selon contracts/http-api.md (porté de `api/evenements` : `retry`, `ready`, `change`, battement 25 s, fermeture à 55 min, compteur de flux par adresse limité à 6 ⇒ 429, 404 pour un sondage inconnu)
-- [ ] T075 [US3] Publier `responses` après la transaction dans `submitResponse` et `withdrawResponse` de `src/app/s/[publicId]/actions.ts`
-- [ ] T076 [US3] Créer `src/components/live-poll.tsx` : `EventSource` sur `/api/s/{publicId}/flux`, `router.refresh()` sur `change` (regroupés sur 300 ms) et sur `ready` après une coupure, arrêt sur erreur définitive
-- [ ] T077 [US3] Intégrer pastilles, infobulles, liste et `LivePoll` dans `src/app/s/[publicId]/page.tsx`
+- [X] T070 [P] [US3] Créer `src/lib/availability.ts` (construction des jours, comptes et noms à partir des votes ; troncature à 20 noms)
+- [X] T071 [US3] Ajouter `getPollSynthesis(pollId)` à `src/server/polls/read.ts` : votes groupés par jour en une requête, nom = `User.displayName` pour une réponse connectée, `pseudonym` sinon
+- [X] T072 [US3] Étendre `src/components/date-picker.tsx` : prop `badges` (pastille à aplat `--color-vote`, texte `--color-on-ember`, `aria-label` « N votes »), infobulle des votants au survol et au focus (`role="tooltip"`, `aria-describedby`), prop `markedMonths` signalée dans la navigation, prop `retainedDay` (aplat jade), prop `readOnly` (consultation : aucun jour ne se choisit, la navigation et le clavier restent) ; sans changer les comportements portés en T042
+- [X] T073 [P] [US3] Créer `src/app/s/[publicId]/_sections/availability-list.tsx` : liste « Qui est disponible ? » par jour, nombre et noms, marque des réponses connectées
+- [X] T074 [US3] Créer `src/app/api/s/[publicId]/flux/route.ts` selon contracts/http-api.md (porté de `api/evenements` : `retry`, `ready`, `change`, battement 25 s, fermeture à 55 min, compteur de flux par adresse limité à 6 ⇒ 429, 404 pour un sondage inconnu)
+- [X] T075 [US3] Publier `responses` après la transaction dans `submitResponse` et `withdrawResponse` de `src/app/s/[publicId]/actions.ts`
+- [X] T076 [US3] Créer `src/components/live-poll.tsx` : `EventSource` sur `/api/s/{publicId}/flux`, `router.refresh()` sur `change` (regroupés sur 300 ms) et sur `ready` après une coupure, arrêt sur erreur définitive
+- [X] T077 [US3] Intégrer pastilles, infobulles, liste et `LivePoll` dans `src/app/s/[publicId]/page.tsx`
 
 **Checkpoint**: le parcours créer, répondre, voir en direct est complet (T069 vert)
 
@@ -197,16 +197,16 @@ Projet unique à la racine (plan.md) : `src/`, `prisma/`, `tests/unit/`, `tests/
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T078 [P] [US4] Écrire `tests/unit/google-token.test.ts` (porté) : jeton accepté seulement si `aud` = notre client, `iss` Google, non expiré, `email_verified` vrai
-- [ ] T079 [P] [US4] Écrire `tests/unit/google-handshake.test.ts` (porté) : cookie signé relu, altération refusée, `state` différent refusé, `suite` analysée
-- [ ] T080 [P] [US4] Écrire `tests/integration/google-login.test.ts` : compte neuf créé sans mot de passe avec `emailProvedAt` ; reconnaissance par `googleId` même si l'adresse a changé ; rattachement à un compte local à adresse prouvée qui garde son mot de passe ; rattachement à un compte local à adresse NON prouvée ⇒ `passwordHash` effacé et toutes ses sessions fermées ; compte portant déjà un autre `googleId` jamais repris ; seau `googleSigninPerIp` distinct de `loginPerIp`
+- [X] T078 [P] [US4] Écrire `tests/unit/google-token.test.ts` (porté) : jeton accepté seulement si `aud` = notre client, `iss` Google, non expiré, `email_verified` vrai
+- [X] T079 [P] [US4] Écrire `tests/unit/google-handshake.test.ts` (porté) : cookie signé relu, altération refusée, `state` différent refusé, `suite` analysée
+- [X] T080 [P] [US4] Écrire `tests/integration/google-login.test.ts` : compte neuf créé sans mot de passe avec `emailProvedAt` ; reconnaissance par `googleId` même si l'adresse a changé ; rattachement à un compte local à adresse prouvée qui garde son mot de passe ; rattachement à un compte local à adresse NON prouvée ⇒ `passwordHash` effacé et toutes ses sessions fermées ; compte portant déjà un autre `googleId` jamais repris ; seau `googleSigninPerIp` distinct de `loginPerIp`
 
 ### Implementation for User Story 4
 
-- [ ] T081 [P] [US4] Porter `src/server/auth/google-handshake.ts` (cookie `dp_google` de 10 min signé avec `APP_SECRET`)
-- [ ] T082 [US4] Porter `src/server/auth/google.ts` (URL d'autorisation avec PKCE `S256`, échange du code, `parseIdToken`) et y écrire `loginWithGoogle` avec la protection contre la pré-appropriation de research.md R5
-- [ ] T083 [US4] Créer `src/app/api/connexion/google/route.ts` et `src/app/api/connexion/google/retour/route.ts` selon contracts/http-api.md (cookie toujours effacé, raisons `annule`, `refuse`, `adresse-non-verifiee`, `indisponible`)
-- [ ] T084 [US4] Porter `src/lib/google-signin-notice.ts` (raison ⇒ message en français) et ajouter le bouton Google et l'avis d'échec à `src/app/(auth)/connexion/page.tsx` et `src/app/(auth)/inscription/page.tsx`
+- [X] T081 [P] [US4] Porter `src/server/auth/google-handshake.ts` (cookie `dp_google` de 10 min signé avec `APP_SECRET`)
+- [X] T082 [US4] Porter `src/server/auth/google.ts` (URL d'autorisation avec PKCE `S256`, échange du code, `parseIdToken`) et y écrire `loginWithGoogle` avec la protection contre la pré-appropriation de research.md R5
+- [X] T083 [US4] Créer `src/app/api/connexion/google/route.ts` et `src/app/api/connexion/google/retour/route.ts` selon contracts/http-api.md (cookie toujours effacé, raisons `annule`, `refuse`, `adresse-non-verifiee`, `indisponible`)
+- [X] T084 [US4] Porter `src/lib/google-signin-notice.ts` (raison ⇒ message en français) et ajouter le bouton Google et l'avis d'échec à `src/app/(auth)/connexion/page.tsx` et `src/app/(auth)/inscription/page.tsx`
 
 **Checkpoint**: US4 fonctionne seule
 
@@ -220,27 +220,27 @@ Projet unique à la racine (plan.md) : `src/`, `prisma/`, `tests/unit/`, `tests/
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T085 [P] [US5] Écrire `tests/unit/poll-state.test.ts` : transitions du tableau de data-model.md (`close`, `setRetainedDay`, `reopen`) ; date retenue seulement en `CLOSED` ; `reopen` l'efface
-- [ ] T086 [P] [US5] Écrire `tests/unit/digest.test.ts` : prochain envoi = `max(maintenant + 15 min, dernier envoi + 30 min)` ; 5 réponses en 10 min ⇒ un seul envoi ; résumé vide ⇒ annulé et curseur avancé
-- [ ] T087 [P] [US5] Écrire `tests/unit/signed-link.test.ts` : signature valide acceptée ; altérée, d'un autre objet ou d'un autre sondage refusée
-- [ ] T088 [P] [US5] Écrire `tests/integration/poll-owner.test.ts` : chaque action par un non-créateur ⇒ `NOT_FOUND` ; modification du titre et de la description ; ajout de jours (passé refusé, total ≤ 366, doublons ignorés) ; retrait d'un jour voté ⇒ `DAY_HAS_VOTES`, du dernier jour ⇒ `LAST_DAY` ; vote simultané au retrait ⇒ vote conservé ; options ; clôture avec et sans date ; `setRetainedDay` seulement en `CLOSED` et jour du sondage ; réouverture ; deux clôtures simultanées ⇒ une seule appliquée, une seule annonce `RETAINED_DAY` mise en file ; clôture et réouverture simultanées ⇒ état final cohérent (`retainedDayId` nul si `OPEN`) ; suppression d'une réponse ; suppression en cascade d'un sondage clos PORTANT des votes et une date retenue (doit réussir, contrainte `NO ACTION`), emails en attente annulés ; liste « Mes sondages » (ordre, nombre de répondants, état, date retenue)
-- [ ] T089 [P] [US5] Écrire `tests/integration/notifications.test.ts` : 5 réponses en 10 min ⇒ un seul `OWNER_DIGEST` listant les 5, programmé 15 min après la première ; réponse retirée avant l'envoi absente ; `notifyOwner = false` ⇒ rien ; `RETAINED_DAY` aux seuls répondants connectés, dédoublonné, créateur exclu ; lien de désactivation valide et invalide ; en-têtes `List-Unsubscribe` et `List-Unsubscribe-Post` ; valeurs saisies échappées dans la branche HTML
-- [ ] T090 [P] [US5] Écrire `e2e/manage-poll.spec.ts` : « Mes sondages » ; modification du titre ; ajout d'un jour ; retrait d'un jour voté impossible ; suppression d'une réponse ; bascule « répondants connectés uniquement » ; clôture avec date retenue ⇒ bandeau, date en jade, plus de formulaire ; réouverture ; suppression ⇒ lien introuvable (scénarios US5 1 à 10)
+- [X] T085 [P] [US5] Écrire `tests/unit/poll-state.test.ts` : transitions du tableau de data-model.md (`close`, `setRetainedDay`, `reopen`) ; date retenue seulement en `CLOSED` ; `reopen` l'efface
+- [X] T086 [P] [US5] Écrire `tests/unit/digest.test.ts` : prochain envoi = `max(maintenant + 15 min, dernier envoi + 30 min)` ; 5 réponses en 10 min ⇒ un seul envoi ; résumé vide ⇒ annulé et curseur avancé
+- [X] T087 [P] [US5] Écrire `tests/unit/signed-link.test.ts` : signature valide acceptée ; altérée, d'un autre objet ou d'un autre sondage refusée
+- [X] T088 [P] [US5] Écrire `tests/integration/poll-owner.test.ts` : chaque action par un non-créateur ⇒ `NOT_FOUND` ; modification du titre et de la description ; ajout de jours (passé refusé, total ≤ 366, doublons ignorés) ; retrait d'un jour voté ⇒ `DAY_HAS_VOTES`, du dernier jour ⇒ `LAST_DAY` ; vote simultané au retrait ⇒ vote conservé ; options ; clôture avec et sans date ; `setRetainedDay` seulement en `CLOSED` et jour du sondage ; réouverture ; deux clôtures simultanées ⇒ une seule appliquée, une seule annonce `RETAINED_DAY` mise en file ; clôture et réouverture simultanées ⇒ état final cohérent (`retainedDayId` nul si `OPEN`) ; suppression d'une réponse ; suppression en cascade d'un sondage clos PORTANT des votes et une date retenue (doit réussir, contrainte `NO ACTION`), emails en attente annulés ; liste « Mes sondages » (ordre, nombre de répondants, état, date retenue)
+- [X] T089 [P] [US5] Écrire `tests/integration/notifications.test.ts` : 5 réponses en 10 min ⇒ un seul `OWNER_DIGEST` listant les 5, programmé 15 min après la première ; réponse retirée avant l'envoi absente ; `notifyOwner = false` ⇒ rien ; `RETAINED_DAY` aux seuls répondants connectés, dédoublonné, créateur exclu ; lien de désactivation valide et invalide ; en-têtes `List-Unsubscribe` et `List-Unsubscribe-Post` ; valeurs saisies échappées dans la branche HTML
+- [X] T090 [P] [US5] Écrire `e2e/manage-poll.spec.ts` : « Mes sondages » ; modification du titre ; ajout d'un jour ; retrait d'un jour voté impossible ; suppression d'une réponse ; bascule « répondants connectés uniquement » ; clôture avec date retenue ⇒ bandeau, date en jade, plus de formulaire ; réouverture ; suppression ⇒ lien introuvable (scénarios US5 1 à 10)
 
 ### Implementation for User Story 5
 
-- [ ] T091 [P] [US5] Créer `src/lib/poll-state.ts` (transitions et gardes du tableau de data-model.md)
-- [ ] T092 [P] [US5] Créer `src/lib/digest.ts` (instant du prochain résumé, contenu à partir des réponses postérieures au curseur)
-- [ ] T093 [P] [US5] Créer `src/lib/signed-link.ts` (HMAC-SHA-256 avec `APP_SECRET`, objet `owner-digest`, comparaison à temps constant)
-- [ ] T094 [US5] Créer `src/server/polls/edit.ts` : `updatePollDetails`, `addPollDays`, `removePollDay` (`DELETE … WHERE NOT EXISTS (vote)` et au moins un jour restant), `setPollOptions`, `deleteResponse`, `deletePoll` (`cancelPendingForPoll`) ; chaque écriture porte `owner_id` dans son `WHERE` et zéro ligne touchée ⇒ `NOT_FOUND`
-- [ ] T095 [US5] Créer `src/server/polls/state.ts` : `closePoll`, `setRetainedDay`, `reopenPoll` en écritures conditionnelles sur `status`, avec mise en file de `RETAINED_DAY` dans la transaction quand une date est désignée ou changée
-- [ ] T096 [US5] Créer `src/server/notifications/digest.ts` (`scheduleOwnerDigest(pollId, tx)` appuyé sur l'index unique du résumé en attente, rendu à l'envoi avec avancée du curseur, diffusion `RETAINED_DAY`) et ajouter les modèles `OWNER_DIGEST` et `RETAINED_DAY` à `src/server/notifications/templates.ts` selon contracts/emails.md, en-têtes `List-Unsubscribe` compris
-- [ ] T097 [US5] Appeler `scheduleOwnerDigest` depuis `submitResponse` dans `src/server/polls/responses.ts` quand `created` est vrai et `notifyOwner` actif
-- [ ] T098 [US5] Ajouter à `src/app/s/[publicId]/actions.ts` les actions du créateur de contracts/server-actions.md (`updatePollDetails`, `addPollDays`, `removePollDay`, `setPollOptions`, `closePoll`, `setRetainedDay`, `reopenPoll`, `deleteResponse`, `deletePoll`), publication `poll`, `responses` ou `deleted` après la transaction
-- [ ] T099 [US5] Créer `src/app/s/[publicId]/_sections/owner-panel.tsx` (rendu seulement pour le propriétaire) : titre et description, ajout de jours (`DatePicker` depuis aujourd'hui, jours existants exclus), retrait réservé aux jours sans vote, options, clôture avec choix facultatif de la date retenue parmi les jours proposés, changement de date, réouverture, suppression d'une réponse et du sondage avec confirmation, copie du lien
-- [ ] T100 [US5] Ajouter à `src/app/s/[publicId]/page.tsx` le bandeau « Sondage clos », la date retenue en jade (prop `retainedDay`) et le panneau du créateur
-- [ ] T101 [US5] Créer `src/app/mes-sondages/page.tsx` et `listOwnerPolls` dans `src/server/polls/read.ts` (titre, nombre de répondants, date de création décroissante, état, date retenue)
-- [ ] T102 [US5] Créer `src/app/notifications/resume/desactiver/page.tsx`, son action `disableOwnerDigest` dans `src/app/notifications/resume/desactiver/actions.ts`, et `src/app/api/notifications/resume/desactiver/route.ts` (`POST` en un clic, toujours 200)
+- [X] T091 [P] [US5] Créer `src/lib/poll-state.ts` (transitions et gardes du tableau de data-model.md)
+- [X] T092 [P] [US5] Créer `src/lib/digest.ts` (instant du prochain résumé, contenu à partir des réponses postérieures au curseur)
+- [X] T093 [P] [US5] Créer `src/lib/signed-link.ts` (HMAC-SHA-256 avec `APP_SECRET`, objet `owner-digest`, comparaison à temps constant)
+- [X] T094 [US5] Créer `src/server/polls/edit.ts` : `updatePollDetails`, `addPollDays`, `removePollDay` (`DELETE … WHERE NOT EXISTS (vote)` et au moins un jour restant), `setPollOptions`, `deleteResponse`, `deletePoll` (`cancelPendingForPoll`) ; chaque écriture porte `owner_id` dans son `WHERE` et zéro ligne touchée ⇒ `NOT_FOUND`
+- [X] T095 [US5] Créer `src/server/polls/state.ts` : `closePoll`, `setRetainedDay`, `reopenPoll` en écritures conditionnelles sur `status`, avec mise en file de `RETAINED_DAY` dans la transaction quand une date est désignée ou changée
+- [X] T096 [US5] Créer `src/server/notifications/digest.ts` (`scheduleOwnerDigest(pollId, tx)` appuyé sur l'index unique du résumé en attente, rendu à l'envoi avec avancée du curseur, diffusion `RETAINED_DAY`) et ajouter les modèles `OWNER_DIGEST` et `RETAINED_DAY` à `src/server/notifications/templates.ts` selon contracts/emails.md, en-têtes `List-Unsubscribe` compris
+- [X] T097 [US5] Appeler `scheduleOwnerDigest` depuis `submitResponse` dans `src/server/polls/responses.ts` quand `created` est vrai et `notifyOwner` actif
+- [X] T098 [US5] Ajouter à `src/app/s/[publicId]/actions.ts` les actions du créateur de contracts/server-actions.md (`updatePollDetails`, `addPollDays`, `removePollDay`, `setPollOptions`, `closePoll`, `setRetainedDay`, `reopenPoll`, `deleteResponse`, `deletePoll`), publication `poll`, `responses` ou `deleted` après la transaction
+- [X] T099 [US5] Créer `src/app/s/[publicId]/_sections/owner-panel.tsx` (rendu seulement pour le propriétaire) : titre et description, ajout de jours (`DatePicker` depuis aujourd'hui, jours existants exclus), retrait réservé aux jours sans vote, options, clôture avec choix facultatif de la date retenue parmi les jours proposés, changement de date, réouverture, suppression d'une réponse et du sondage avec confirmation, copie du lien
+- [X] T100 [US5] Ajouter à `src/app/s/[publicId]/page.tsx` le bandeau « Sondage clos », la date retenue en jade (prop `retainedDay`) et le panneau du créateur
+- [X] T101 [US5] Créer `src/app/mes-sondages/page.tsx` et `listOwnerPolls` dans `src/server/polls/read.ts` (titre, nombre de répondants, date de création décroissante, état, date retenue)
+- [X] T102 [US5] Créer `src/app/notifications/resume/desactiver/page.tsx`, son action `disableOwnerDigest` dans `src/app/notifications/resume/desactiver/actions.ts`, et `src/app/api/notifications/resume/desactiver/route.ts` (`POST` en un clic, toujours 200)
 
 **Checkpoint**: US5 fonctionne ; le parcours complet de la spec est couvert
 
@@ -254,13 +254,13 @@ Projet unique à la racine (plan.md) : `src/`, `prisma/`, `tests/unit/`, `tests/
 
 ### Tests for User Story 6 ⚠️
 
-- [ ] T103 [P] [US6] Écrire `e2e/landing.spec.ts` : appel à l'action visible sans défiler à 1280×800 et 375×667 ; aucun défilement horizontal ; `prefers-reduced-motion: reduce` ⇒ aucune animation en cours, état final affiché ; démonstration et trois étapes présentes ; le bouton mène à `/nouveau` ou `/connexion?suite=/nouveau` ; contenu principal (accroche et bouton) affiché en moins de 2,5 s sous réseau 4G simulé (limitation réseau de Chromium) (FR-032, FR-033, SC-006)
+- [X] T103 [P] [US6] Écrire `e2e/landing.spec.ts` : appel à l'action visible sans défiler à 1280×800 et 375×667 ; aucun défilement horizontal ; `prefers-reduced-motion: reduce` ⇒ aucune animation en cours, état final affiché ; démonstration et trois étapes présentes ; le bouton mène à `/nouveau` ou `/connexion?suite=/nouveau` ; contenu principal (accroche et bouton) affiché en moins de 2,5 s sous réseau 4G simulé (limitation réseau de Chromium) (FR-032, FR-033, SC-006)
 
 ### Implementation for User Story 6
 
-- [ ] T104 [US6] Créer `src/components/landing-demo.tsx` : grille d'un mois en SVG tracée comme un trait de découpe (`stroke-dashoffset`), jours qui s'allument, pastilles qui apparaissent et comptent, date retenue en jade ; animations CSS sur `transform` et `opacity` seulement ; état final sous `prefers-reduced-motion` ; `aria-hidden` avec une description textuelle voisine
-- [ ] T105 [US6] Créer `src/app/page.tsx` : accroche, démonstration, trois étapes, aperçu du partage, second appel à l'action ; métadonnées indexables (titre, description, canonique, Open Graph)
-- [ ] T106 [P] [US6] Créer `src/app/icon.svg` (marque DatePlanner dans l'esprit des icônes de laserit.fr)
+- [X] T104 [US6] Créer `src/components/landing-demo.tsx` : grille d'un mois en SVG tracée comme un trait de découpe (`stroke-dashoffset`), jours qui s'allument, pastilles qui apparaissent et comptent, date retenue en jade ; animations CSS sur `transform` et `opacity` seulement ; état final sous `prefers-reduced-motion` ; `aria-hidden` avec une description textuelle voisine
+- [X] T105 [US6] Créer `src/app/page.tsx` : accroche, démonstration, trois étapes, aperçu du partage, second appel à l'action ; métadonnées indexables (titre, description, canonique, Open Graph)
+- [X] T106 [P] [US6] Créer `src/app/icon.svg` (marque DatePlanner dans l'esprit des icônes de laserit.fr)
 
 **Checkpoint**: US6 fonctionne seule
 
@@ -274,13 +274,13 @@ Projet unique à la racine (plan.md) : `src/`, `prisma/`, `tests/unit/`, `tests/
 
 ### Tests for User Story 7 ⚠️
 
-- [ ] T107 [P] [US7] Écrire `tests/unit/theme.test.ts` (porté) : seules `light` et `dark` sont relues du stockage
-- [ ] T108 [P] [US7] Écrire `e2e/theme.spec.ts` : système sombre avec JavaScript désactivé ⇒ fond sombre (pas de dépendance au script) ; choix clair conservé après rechargement avec système sombre ; premier rendu déjà au bon thème (attribut posé avant hydratation) ; contraste des pastilles et textes vérifié par axe dans les deux thèmes
+- [X] T107 [P] [US7] Écrire `tests/unit/theme.test.ts` (porté) : seules `light` et `dark` sont relues du stockage
+- [X] T108 [P] [US7] Écrire `e2e/theme.spec.ts` : système sombre avec JavaScript désactivé ⇒ fond sombre (pas de dépendance au script) ; choix clair conservé après rechargement avec système sombre ; premier rendu déjà au bon thème (attribut posé avant hydratation) ; contraste des pastilles et textes vérifié par axe dans les deux thèmes
 
 ### Implementation for User Story 7
 
-- [ ] T109 [P] [US7] Porter `src/lib/theme.ts` (`THEME_INIT_SCRIPT`, clé `dp-theme`, `readStoredTheme`)
-- [ ] T110 [US7] Porter `src/components/theme-script.tsx`, `src/components/theme-store.ts` et `src/components/theme-toggle.tsx` (deux positions) et les brancher dans `src/app/layout.tsx` (script dans le `<head>` avec le nonce, bascule dans l'en-tête)
+- [X] T109 [P] [US7] Porter `src/lib/theme.ts` (`THEME_INIT_SCRIPT`, clé `dp-theme`, `readStoredTheme`)
+- [X] T110 [US7] Porter `src/components/theme-script.tsx`, `src/components/theme-store.ts` et `src/components/theme-toggle.tsx` (deux positions) et les brancher dans `src/app/layout.tsx` (script dans le `<head>` avec le nonce, bascule dans l'en-tête)
 
 **Checkpoint**: toutes les user stories fonctionnent
 
@@ -290,18 +290,18 @@ Projet unique à la racine (plan.md) : `src/`, `prisma/`, `tests/unit/`, `tests/
 
 **Purpose**: compte, conformité, conservation, sécurité transverse, exploitation et documentation
 
-- [ ] T111 [P] Créer `src/server/auth/account.ts` (`updateDisplayName`, `deleteAccount` en cascade), `src/app/compte/page.tsx` et `src/app/compte/actions.ts` (suppression avec mot de passe, ou connexion de moins de 10 min pour un compte sans mot de passe ⇒ sinon `REAUTH_REQUIRED`) et `tests/integration/account.test.ts` : suppression d'un compte dont les sondages portent des votes et qui a répondu à des sondages d'autrui ⇒ réussit, tout est emporté, les sondages d'autrui gardent leurs autres réponses (FR-006)
-- [ ] T112 [P] Créer `src/app/mentions-legales/page.tsx` et `src/app/confidentialite/page.tsx` à partir de `src/config/identity.ts` et `src/config/retention.ts` (données, finalités, durées, cookies `dp_session`, `dp_appareil`, `dp_google`, stockage du thème, droits), indexables ; `tests/unit/privacy-policy.test.ts` confronte les durées affichées à `retention.ts` (FR-036)
-- [ ] T113 Créer `src/server/maintenance/retention.ts` (sondages supprimés 12 mois après leur dernier jour ; `INACTIVITY_WARNING` à 3 ans d'inactivité ; suppression 30 jours après l'avertissement sauf activité ; emails envoyés purgés à 30 jours), l'appeler depuis `src/server/maintenance/index.ts`, ajouter le modèle `INACTIVITY_WARNING` à `src/server/notifications/templates.ts`, et écrire `tests/integration/retention.test.ts`
-- [ ] T114 [P] Écrire `tests/integration/security.test.ts` et porter `tests/unit/csp-source.test.ts` : CSP sans `'unsafe-inline'`, aucun `<script` sans nonce dans `src/`, redirections HTTPS, `noindex` sur `/s/`, titres et pseudos contenant du balisage rendus comme texte dans les pages et les emails (FR-035, FR-037)
-- [ ] T115 [P] Écrire `e2e/accessibility.spec.ts` : axe sur chaque page de contracts/pages.md dans les deux thèmes ; création et réponse au clavier seul avec focus visible ; sous `prefers-reduced-motion: reduce`, aucune animation ni transition en cours sur `/`, `/nouveau` et `/s/…` après un vote et une bascule de thème (FR-033, FR-034, SC-009)
-- [ ] T116 [P] Écrire `tests/integration/performance.test.ts` : sondage de 60 jours et 100 répondants, `getPollSynthesis` sous 200 ms ; et `e2e/performance.spec.ts` : ce sondage affiché complet en moins de 2 s sous réseau 4G simulé (SC-005)
-- [ ] T117 [P] Créer les fichiers d'exploitation : `deploy/dateplanner.service` (compte `dateplanner`, `/opt/dateplanner`, `EnvironmentFile`, abandon après 5 échecs par minute), `deploy/dateplanner-proxy-distant.conf` (écoute réseau, tas Node borné), `deploy/dateplanner-maintenance.service` et `.timer` (toutes les 10 min, `Persistent=true`), `deploy/dateplanner-backup.service` et `.timer` (vers 3 h, `Persistent=true`), `deploy/journald-dateplanner.conf` (500 Mo, 1 mois), `deploy/traefik/dateplanner.yml` (`Host(\`dateplanner.laserit.fr\`)` ⇒ `http://192.168.1.53:3000`, `certResolver: letsencrypt`)
-- [ ] T118 [P] Porter `scripts/backup.sh`, `scripts/restore.sh` et `scripts/lib/pg-env.mjs` depuis laserit.fr, en retirant la partie `storage/` (base seule)
-- [ ] T119 [P] Rédiger `deploy.md` (tag, snapshot `qm snapshot 102 avant_vX_Y_Z`, mise à jour, vérifications de quickstart.md § 5, retour arrière) et `README.md` (installation locale, CNAME OVH `dateplanner` ⇒ `laserit.fr.`, fichier Traefik sur la VM proxy, règle `ufw allow from 192.168.1.51 to any port 3000 proto tcp`, client OAuth Google et son URI de retour, mot de passe d'application Gmail)
-- [ ] T120 [P] Consigner les décisions de research.md (R1 à R19) et les cinq clarifications de la spec dans `docs/decisions/NNN-titre.md`, un fichier par décision, sections « Décision » et « Pourquoi »
-- [ ] T121 Rédiger `PROJET.md` : état, carte du code, invariants à ne pas casser (constitution I et II, data-model.md « Règles transverses »), versions épinglées, et matrice FR ⇒ fichier de test couvrant FR-001 à FR-043
-- [ ] T122 Dérouler quickstart.md § 3 et § 4 et corriger tout écart
+- [X] T111 [P] Créer `src/server/auth/account.ts` (`updateDisplayName`, `deleteAccount` en cascade), `src/app/compte/page.tsx` et `src/app/compte/actions.ts` (suppression avec mot de passe, ou connexion de moins de 10 min pour un compte sans mot de passe ⇒ sinon `REAUTH_REQUIRED`) et `tests/integration/account.test.ts` : suppression d'un compte dont les sondages portent des votes et qui a répondu à des sondages d'autrui ⇒ réussit, tout est emporté, les sondages d'autrui gardent leurs autres réponses (FR-006)
+- [X] T112 [P] Créer `src/app/mentions-legales/page.tsx` et `src/app/confidentialite/page.tsx` à partir de `src/config/identity.ts` et `src/config/retention.ts` (données, finalités, durées, cookies `dp_session`, `dp_appareil`, `dp_google`, stockage du thème, droits), indexables ; `tests/unit/privacy-policy.test.ts` confronte les durées affichées à `retention.ts` (FR-036)
+- [X] T113 Créer `src/server/maintenance/retention.ts` (sondages supprimés 12 mois après leur dernier jour ; `INACTIVITY_WARNING` à 3 ans d'inactivité ; suppression 30 jours après l'avertissement sauf activité ; emails envoyés purgés à 30 jours), l'appeler depuis `src/server/maintenance/index.ts`, ajouter le modèle `INACTIVITY_WARNING` à `src/server/notifications/templates.ts`, et écrire `tests/integration/retention.test.ts`
+- [X] T114 [P] Écrire `tests/integration/security.test.ts` et porter `tests/unit/csp-source.test.ts` : CSP sans `'unsafe-inline'`, aucun `<script` sans nonce dans `src/`, redirections HTTPS, `noindex` sur `/s/`, titres et pseudos contenant du balisage rendus comme texte dans les pages et les emails (FR-035, FR-037)
+- [X] T115 [P] Écrire `e2e/accessibility.spec.ts` : axe sur chaque page de contracts/pages.md dans les deux thèmes ; création et réponse au clavier seul avec focus visible ; sous `prefers-reduced-motion: reduce`, aucune animation ni transition en cours sur `/`, `/nouveau` et `/s/…` après un vote et une bascule de thème (FR-033, FR-034, SC-009)
+- [X] T116 [P] Écrire `tests/integration/performance.test.ts` : sondage de 60 jours et 100 répondants, `getPollSynthesis` sous 200 ms ; et `e2e/performance.spec.ts` : ce sondage affiché complet en moins de 2 s sous réseau 4G simulé (SC-005)
+- [X] T117 [P] Créer les fichiers d'exploitation : `deploy/dateplanner.service` (compte `dateplanner`, `/opt/dateplanner`, `EnvironmentFile`, abandon après 5 échecs par minute), `deploy/dateplanner-proxy-distant.conf` (écoute réseau, tas Node borné), `deploy/dateplanner-maintenance.service` et `.timer` (toutes les 10 min, `Persistent=true`), `deploy/dateplanner-backup.service` et `.timer` (vers 3 h, `Persistent=true`), `deploy/journald-dateplanner.conf` (500 Mo, 1 mois), `deploy/traefik/dateplanner.yml` (`Host(\`dateplanner.laserit.fr\`)` ⇒ `http://192.168.1.53:3000`, `certResolver: letsencrypt`)
+- [X] T118 [P] Porter `scripts/backup.sh`, `scripts/restore.sh` et `scripts/lib/pg-env.mjs` depuis laserit.fr, en retirant la partie `storage/` (base seule)
+- [X] T119 [P] Rédiger `deploy.md` (tag, snapshot `qm snapshot 102 avant_vX_Y_Z`, mise à jour, vérifications de quickstart.md § 5, retour arrière) et `README.md` (installation locale, CNAME OVH `dateplanner` ⇒ `laserit.fr.`, fichier Traefik sur la VM proxy, règle `ufw allow from 192.168.1.51 to any port 3000 proto tcp`, client OAuth Google et son URI de retour, mot de passe d'application Gmail)
+- [X] T120 [P] Consigner les décisions de research.md (R1 à R19) et les cinq clarifications de la spec dans `docs/decisions/NNN-titre.md`, un fichier par décision, sections « Décision » et « Pourquoi »
+- [X] T121 Rédiger `PROJET.md` : état, carte du code, invariants à ne pas casser (constitution I et II, data-model.md « Règles transverses »), versions épinglées, et matrice FR ⇒ fichier de test couvrant FR-001 à FR-043
+- [X] T122 Dérouler quickstart.md § 3 et § 4 et corriger tout écart
 
 ---
 

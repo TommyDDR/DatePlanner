@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useActionState, useMemo, useState } from 'react';
-import { DatePicker, type MarkState } from '@/components/date-picker';
+import { DatePicker, type DayBadge, type MarkState } from '@/components/date-picker';
 import { FieldError, FormAlert, Honeypot, SubmitButton } from '@/components/form-parts';
 import { POLL_LIMITS } from '@/config/limits';
 import { addDays, type Marks } from '@/lib/date-picker';
@@ -23,37 +23,54 @@ type Props = {
   requireAccount: boolean;
   user: { displayName: string } | null;
   existing: { pseudonym: string | null; days: string[] } | null;
+  /** Pastilles de votes, par jour. */
+  badges: Record<string, DayBadge>;
+  /** Mois (`AAAA-MM`) qui portent des jours proposés. */
+  markedMonths: string[];
+  retainedDay: string | null;
 };
 
 /**
- * Le formulaire de réponse (contracts/pages.md, « Formulaire de réponse »).
+ * Le calendrier du sondage et le formulaire de réponse (contracts/pages.md).
  *
  * Seuls les jours proposés et à venir se choisissent (FR-015) : les autres
- * restent visibles, barrés ou hors bornes. Le serveur revérifie tout.
+ * restent visibles, barrés ou hors bornes. Le serveur revérifie tout. Quand
+ * on ne peut pas répondre - sondage clos, jours passés, compte exigé -, le
+ * même calendrier se montre en consultation, pastilles comprises.
  */
 export function ResponseForm(props: Props) {
   const { publicId, accepting, closed, requireAccount, user, existing } = props;
 
   if (closed) {
-    return <p className="text-[var(--color-text-muted)]">Ce sondage est clos : il n’accepte plus de réponse.</p>;
+    return (
+      <ReadOnly {...props}>
+        <p className="text-[var(--color-text-muted)]">Ce sondage est clos : il n’accepte plus de réponse.</p>
+      </ReadOnly>
+    );
   }
   if (!accepting) {
-    return <p className="text-[var(--color-text-muted)]">Tous les jours proposés sont passés : ce sondage n’accepte plus de réponse.</p>;
+    return (
+      <ReadOnly {...props}>
+        <p className="text-[var(--color-text-muted)]">
+          Tous les jours proposés sont passés : ce sondage n’accepte plus de réponse.
+        </p>
+      </ReadOnly>
+    );
   }
   if (!user && requireAccount) {
     return (
-      <div className="flex flex-col gap-4">
+      <ReadOnly {...props}>
         <p>
           Le créateur de ce sondage demande de répondre avec un compte.{' '}
           <Link
             href={`/connexion?suite=${encodeURIComponent(`/s/${publicId}`)}`}
-            className="font-medium text-[var(--color-ember)] underline-offset-4 hover:underline"
+            className="font-medium text-[var(--color-ember)] underline underline-offset-4"
           >
             Se connecter pour répondre
           </Link>
         </p>
         {existing ? <WithdrawForm publicId={publicId} label="Retirer ma réponse sans compte" /> : null}
-      </div>
+      </ReadOnly>
     );
   }
   // La réponse enregistrée change (créée, modifiée, retirée) : le formulaire
@@ -61,7 +78,28 @@ export function ResponseForm(props: Props) {
   return <AnswerForm {...props} key={existing ? `${existing.pseudonym}|${existing.days.join(',')}` : 'nouvelle'} />;
 }
 
-function AnswerForm({ publicId, pollDays, today, user, existing }: Props) {
+function ReadOnly({ pollDays, today, badges, markedMonths, retainedDay, children }: Props & { children: React.ReactNode }) {
+  const firstUpcoming = pollDays.find((day) => day >= today) ?? pollDays[pollDays.length - 1] ?? today;
+  return (
+    <div className="flex flex-col gap-4">
+      {children}
+      <DatePicker
+        mode="multiple"
+        readOnly
+        label="Disponibilités"
+        today={today}
+        highlighted={pollDays}
+        highlightLabel="jour proposé"
+        badges={badges}
+        retainedDay={retainedDay}
+        markedMonths={markedMonths}
+        initialDay={retainedDay ?? firstUpcoming}
+      />
+    </div>
+  );
+}
+
+function AnswerForm({ publicId, pollDays, today, user, existing, badges, markedMonths }: Props) {
   const [state, action] = useActionState(submitResponseAction, null);
   const pickable = useMemo(() => pollDays.filter((day) => day >= today), [pollDays, today]);
   const initial = useMemo<Marks>(
@@ -116,11 +154,11 @@ function AnswerForm({ publicId, pollDays, today, user, existing }: Props) {
               aria-describedby={pseudonymError ? 'pseudonym-erreur' : 'pseudonym-aide'}
               className={`field max-w-sm ${pseudonymError ? 'field-error' : ''}`}
             />
-            <p id="pseudonym-aide" className="mt-1.5 text-sm text-[var(--color-text-faint)]">
+            <p id="pseudonym-aide" className="mt-1.5 text-sm text-[var(--color-text-subtle)]">
               Visible par toutes les personnes qui ont le lien.{' '}
               <Link
                 href={`/connexion?suite=${encodeURIComponent(`/s/${publicId}`)}`}
-                className="text-[var(--color-ember)] underline-offset-4 hover:underline"
+                className="text-[var(--color-ember)] underline underline-offset-4"
               >
                 Se connecter pour répondre
               </Link>
@@ -131,6 +169,10 @@ function AnswerForm({ publicId, pollDays, today, user, existing }: Props) {
 
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-1 text-sm font-medium">Vos disponibilités</legend>
+          <p className="text-sm text-[var(--color-text-subtle)]">
+            Cochez les jours qui vous conviennent. Les pastilles comptent les votes déjà reçus ; survolez un jour pour
+            voir qui a voté.
+          </p>
           <DatePicker
             mode="multiple"
             label="Vos disponibilités"
@@ -144,6 +186,8 @@ function AnswerForm({ publicId, pollDays, today, user, existing }: Props) {
             states={AVAILABLE}
             value={marks}
             onChange={setMarks}
+            badges={badges}
+            markedMonths={markedMonths}
           />
           <FieldError id="jours-erreur" message={daysError} />
         </fieldset>

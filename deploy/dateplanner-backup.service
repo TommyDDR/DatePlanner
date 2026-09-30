@@ -1,0 +1,35 @@
+# Sauvegarde de la base - un passage de scripts/backup.sh.
+#
+# Installation :
+#   sudo cp deploy/dateplanner-backup.* /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now dateplanner-backup.timer
+#
+# C'est le TIMER qu'on active, pas ce service. Un passage à la main :
+#   sudo systemctl start dateplanner-backup.service
+#   journalctl -u dateplanner-backup -n 20
+#
+# Les archives restent sur la machine (/var/backups/dateplanner) : les copier
+# AILLEURS fait partie de l'installation (deploy.md).
+
+[Unit]
+Description=Sauvegarde de la base de DatePlanner
+After=postgresql.service
+
+[Service]
+Type=oneshot
+# Sous root, et non sous le compte du service : les archives, fermées en 700,
+# restent hors de portée d'un service web compromis.
+EnvironmentFile=/opt/dateplanner/.env
+ExecStart=/opt/dateplanner/scripts/backup.sh
+
+# Cloisonnement : lire la base, n'écrire que les archives.
+ProtectSystem=strict
+ReadWritePaths=/var/backups
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dateplanner-backup

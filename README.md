@@ -1,0 +1,259 @@
+# DatePlanner
+
+Sondages de dates en ligne, sur `https://dateplanner.laserit.fr`. Un créateur
+propose des jours, partage un lien ; chacun coche ses disponibilités, avec un
+compte ou sous un simple pseudo, et les votes s'affichent en direct chez tout
+le monde.
+
+Service autonome, construit sur le socle de laserit.fr : même pile, même
+thème, même infrastructure. L'état du projet, la carte du code et ses
+invariants sont dans `PROJET.md` ; les décisions, une par fichier, dans
+`docs/decisions/` ; la spécification complète dans `specs/001-date-poll/`.
+
+---
+
+## 1. Pile
+
+Next.js 16 (App Router, Server Actions), React 19, TypeScript 5.9, Tailwind 4,
+PostgreSQL 17 par Prisma 7, Zod 4, argon2id (`@node-rs/argon2`), Nodemailer 10.
+Tests : Vitest (modules purs et intégration contre une vraie base), Playwright
+(Chromium) et axe. Versions exactes dans `package.json` (`.npmrc` :
+`save-exact=true`).
+
+---
+
+## 2. Démarrage en local
+
+Prérequis : Node.js 22 LTS, npm, PostgreSQL 17 avec deux bases, `dateplanner`
+(développement) et `dateplanner_test` (tests, vidée à chaque passage).
+
+```bash
+npm ci
+cp .env.example .env          # puis renseigner les valeurs (§ 3)
+cp .env.example .env.test     # DATABASE_URL vers dateplanner_test, EMAIL_DRIVER=console
+npx prisma migrate deploy
+npm run dev                   # http://localhost:3000
+```
+
+### Commandes
+
+```bash
+npm run typecheck    # tsc
+npm run lint         # ESLint
+npm test             # Vitest : unitaires puis intégration (dateplanner_test)
+npm run e2e          # Playwright, sur un serveur de test dédié (port 3100)
+npm run build        # build de production
+npm run db:migrate   # nouvelle migration en développement
+npm run db:studio    # explorer la base
+```
+
+Les tests d'intégration et les parcours vident les tables : ils refusent une
+base dont le nom ne finit pas par `_test`.
+
+Maintenance à la main (emails en attente, conservation, purges) :
+
+```bash
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/maintenance
+curl http://localhost:3000/api/sante
+```
+
+---
+
+## 3. Variables d'environnement
+
+`.env.example` les liste toutes, sans valeur. Aucun secret n'est versionné, et
+un test d'hygiène du dépôt le vérifie.
+
+| Variable | Rôle | Développement | Production |
+|---|---|---|---|
+| `DATABASE_URL` | base PostgreSQL | `…/dateplanner` | `…/dateplanner` sur la VM |
+| `NEXT_PUBLIC_SITE_URL` | adresse publique (liens des emails, métadonnées) | `http://localhost:3000` | `https://dateplanner.laserit.fr` |
+| `APP_SECRET` | signatures : cookie Google, liens de désactivation | 32 octets aléatoires | idem, propre à la production |
+| `CRON_SECRET` | appel de la maintenance | valeur aléatoire | idem |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | connexion Google (§ 5) | client de développement | client de production |
+| `EMAIL_DRIVER` | `console`, `gmail` ou `smtp` | `console` | `gmail` |
+| `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM` | envoi réel (§ 4) | vides | compte Gmail |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` | pilote `smtp` seulement | vides | vides |
+| `RATE_LIMIT_DISABLED` | neutralise l'anti-flood, jamais en production | `1` si besoin | vide |
+| `RATE_LIMIT_ALLOWLIST` | adresses exemptées, séparées par des virgules | vide | selon besoin |
+
+Tirer un secret : `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`.
+
+Une variable `NEXT_PUBLIC_…` est gravée dans les pages au build : la changer
+demande un nouveau build, pas seulement un redémarrage. Un build de
+production refuse une adresse publique en `http`.
+
+---
+
+## 4. Envoi des emails
+
+Avec `EMAIL_DRIVER=console`, **aucun email réel ne part** : chacun est écrit
+dans le terminal. Les emails du service : réinitialisation du mot de passe,
+résumé des nouvelles réponses au créateur, annonce de la date retenue,
+avertissement avant suppression d'un compte inactif.
+
+**Gmail** (production, compte `notificationslaserit@gmail.com`) : la
+validation en deux étapes doit être active sur le compte, puis un **mot de
+passe d'application** se crée sur `myaccount.google.com/apppasswords`. Le mot
+de passe du compte lui-même est toujours refusé par le serveur d'envoi.
+
+```dotenv
+EMAIL_DRIVER=gmail
+SMTP_USER=notificationslaserit@gmail.com
+# Le mot de passe d'application (16 caractères), saisi sur le serveur seulement.
+SMTP_PASSWORD=
+EMAIL_FROM=DatePlanner
+```
+
+Hôte, port et chiffrement sont déduits du pilote. L'adresse d'expédition reste
+celle du compte (Gmail réécrit l'en-tête `From`) ; seul le nom affiché de
+`EMAIL_FROM` est repris.
+
+Un email n'est jamais envoyé pendant l'action qui le déclenche : il est mis en
+file dans la même transaction, puis expédié. Une panne de messagerie ne fait
+échouer aucune action ; la maintenance retente, et marque l'email en échec
+après cinq essais.
+
+---
+
+## 5. Connexion avec un compte Google
+
+Le bouton « Continuer avec Google » n'apparaît que si les deux variables
+`GOOGLE_CLIENT_ID` et `GOOGLE_CLIENT_SECRET` sont renseignées.
+
+1. Console Google Cloud, **même projet que laserit.fr**.
+2. **Écran de consentement OAuth** : externe, publié, avec le lien vers
+   `https://dateplanner.laserit.fr/confidentialite`. Les autorisations
+   demandées (`openid email profile`) ne sont pas sensibles.
+3. **Identifiants > ID client OAuth 2.0**, type « Application Web ». URI de
+   redirection autorisés, **au caractère près** :
+   - `http://localhost:3000/api/connexion/google/retour` pour développer ;
+   - `https://dateplanner.laserit.fr/api/connexion/google/retour` en production.
+4. Reporter l'identifiant et le secret dans `.env`, puis redémarrer.
+
+Un compte local de même adresse est retrouvé, sans doublon, si Google a
+confirmé l'adresse. Si ce compte local n'avait jamais prouvé son adresse, son
+mot de passe est effacé et ses sessions fermées au rattachement : quelqu'un
+qui l'aurait créé au nom d'autrui en perd l'accès.
+
+---
+
+## 6. Mise en production - première installation
+
+La production est auto-hébergée sur l'hyperviseur Proxmox de laserit.fr. La
+VM proxy, déjà en place, reçoit seule les ports 80 et 443 et termine le
+HTTPS ; DatePlanner a sa propre VM.
+
+```
+internet ── box (80, 443) ── VM 101 proxy : Traefik + CrowdSec ── VM 102 dateplanner : Next :3000 + PostgreSQL
+```
+
+| Machine | Adresse | Rôle |
+|---|---|---|
+| Hôte Proxmox | `192.168.1.10` | snapshots des VM |
+| VM 101 `proxy` | `192.168.1.51` | HTTPS, certificats, CrowdSec |
+| VM 102 `dateplanner` | `192.168.1.53` | code dans `/opt/dateplanner`, service `dateplanner`, compte `dateplanner` |
+
+### 6.1 La VM
+
+Debian stable, 2 vCPU, 2 Go de mémoire, 20 Go de disque ; bail DHCP statique
+`192.168.1.53` sur la box ; accès `admin` par clé SSH.
+
+```bash
+sudo apt install -y curl git ufw postgresql-17      # dépôt PGDG si la version manque
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt install -y nodejs
+
+# Pare-feu : SSH depuis le réseau local, le port 3000 depuis la VM proxy SEULE.
+sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp
+sudo ufw allow from 192.168.1.51 to any port 3000 proto tcp
+sudo ufw enable
+```
+
+Sans la règle du port 3000, Next serait joignable en clair depuis tout le
+réseau local : la seule porte d'entrée doit rester le proxy.
+
+### 6.2 Base, compte et code
+
+```bash
+sudo -u postgres createuser --pwprompt dateplanner
+sudo -u postgres createdb --owner=dateplanner dateplanner
+
+sudo useradd --system --home /opt/dateplanner --shell /usr/sbin/nologin dateplanner
+sudo git clone https://github.com/TommyDDR/DatePlanner.git /opt/dateplanner   # dépôt privé : clé de déploiement en lecture
+sudo chown -R dateplanner:dateplanner /opt/dateplanner
+
+sudo -u dateplanner cp /opt/dateplanner/.env.example /opt/dateplanner/.env
+sudo chmod 600 /opt/dateplanner/.env
+sudoedit /opt/dateplanner/.env      # valeurs de production (§ 3), NODE_ENV=production
+```
+
+Le premier déploiement d'une version suit ensuite `deploy.md` § 3 (checkout
+du tag, `npm ci`, `prisma migrate deploy`, build).
+
+### 6.3 Unités systemd
+
+```bash
+cd /opt/dateplanner
+sudo cp deploy/dateplanner.service deploy/dateplanner-maintenance.* deploy/dateplanner-backup.* /etc/systemd/system/
+sudo mkdir -p /etc/systemd/system/dateplanner.service.d
+sudo cp deploy/dateplanner-proxy-distant.conf /etc/systemd/system/dateplanner.service.d/override.conf
+sudo mkdir -p /etc/systemd/journald.conf.d
+sudo cp deploy/journald-dateplanner.conf /etc/systemd/journald.conf.d/dateplanner.conf
+sudo systemctl restart systemd-journald
+sudo systemctl daemon-reload
+sudo systemctl enable --now dateplanner dateplanner-maintenance.timer dateplanner-backup.timer
+systemctl list-timers 'dateplanner-*'
+```
+
+- `dateplanner.service` lit ses secrets dans `/opt/dateplanner/.env`
+  (`EnvironmentFile`), jamais dans l'unité, où `systemctl show` les
+  exposerait ; il abandonne après cinq démarrages ratés en une minute.
+- Le complément `proxy-distant` fait écouter Next sur le réseau et borne son
+  tas à 1 Go.
+- La maintenance passe toutes les dix minutes, en boucle locale ;
+  `/api/sante` signale un retard au-delà de trente minutes.
+- La sauvegarde (`scripts/backup.sh`) passe chaque nuit vers 3 h, sous root.
+
+### 6.4 DNS chez OVH
+
+Espace client OVH > Noms de domaine > `laserit.fr` > Zone DNS > Ajouter une
+entrée :
+
+- type **CNAME**, sous-domaine `dateplanner`, cible `laserit.fr.` (avec le
+  point final), TTL par défaut.
+
+Le sous-domaine suit ainsi l'adresse de `laserit.fr` sans rien à tenir à jour.
+Vérifier, une fois la propagation faite :
+
+```powershell
+Resolve-DnsName dateplanner.laserit.fr     # <IP publique>, par le CNAME
+```
+
+### 6.5 Traefik, sur la VM proxy
+
+```bash
+scp deploy/traefik/dateplanner.yml admin@192.168.1.51:/tmp/
+ssh admin@192.168.1.51 sudo cp /tmp/dateplanner.yml /etc/traefik/dynamic/
+```
+
+Traefik relit le répertoire de lui-même, obtient le certificat Let's Encrypt
+de `dateplanner.laserit.fr` au premier accès et renvoie `http://` vers
+`https://`. Il pose `X-Forwarded-Proto` et `X-Real-IP` en retirant ceux
+qu'envoie le visiteur : sans le premier, tout serait redirigé en boucle ; sans
+le second, l'anti-flood compterait tous les visiteurs comme un seul.
+
+### 6.6 Ce qui reste à l'exploitant
+
+- **Sauvegardes hors de la VM** : `scripts/backup.sh` écrit dans
+  `/var/backups/dateplanner`, sur le disque même de la base. Copier ces
+  archives ailleurs, de façon planifiée, fait partie de l'installation ; puis
+  éprouver une restauration complète avec `scripts/restore.sh` sur une base
+  vierge. Une sauvegarde jamais restaurée ne prouve rien.
+- **Surveillance extérieure** de `https://dateplanner.laserit.fr/api/sante`,
+  par un service tiers, toutes les 5 minutes, avec alerte par email : un
+  service tombé ne peut pas prévenir qu'il est tombé. `/api/sante` répond 200
+  seulement si le processus ET la base répondent.
+
+Les vérifications après mise en service sont dans
+`specs/001-date-poll/quickstart.md` § 5. Les mises à jour suivantes :
+`deploy.md`.

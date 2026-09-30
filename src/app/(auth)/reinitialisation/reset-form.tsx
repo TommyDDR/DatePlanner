@@ -40,7 +40,7 @@ export function ResetForm({ token }: { token: string }) {
           invalid={Boolean(passwordError)}
           describedBy="password-aide"
         />
-        <p id="password-aide" className="mt-1.5 text-sm text-[var(--color-text-faint)]">
+        <p id="password-aide" className="mt-1.5 text-sm text-[var(--color-text-subtle)]">
           {PASSWORD_HINT}
         </p>
         <FieldError id="password-erreur" message={passwordError} />

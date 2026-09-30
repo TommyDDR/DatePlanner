@@ -32,6 +32,10 @@ import {
   type Marks,
   type Month,
 } from '@/lib/date-picker';
+import { voteCountLabel, votersSummary, type Voter } from '@/lib/availability';
+
+/** Ce que porte un jour voté : son nombre de votes et ses votants (FR-020, FR-021). */
+export type DayBadge = { count: number; voters: readonly Voter[] };
 
 /**
  * Le calendrier du site : un jour, ou des jours MARQUÉS.
@@ -187,6 +191,25 @@ export type DatePickerProps = {
    * il va au jour tabulable, que le clavier déplace.
    */
   id?: string;
+  /**
+   * Pastilles de votes : pour chaque jour voté, le nombre de votes et les
+   * votants, montrés dans une infobulle au survol et au focus clavier.
+   */
+  badges?: Readonly<Record<Day, DayBadge>>;
+  /** La date retenue d'un sondage clos : un aplat jade. */
+  retainedDay?: Day | null;
+  /**
+   * Consultation : aucun jour ne se choisit - ni clic, ni glissé, ni groupe -,
+   * mais la navigation, le clavier et les infobulles restent.
+   */
+  readOnly?: boolean;
+  /**
+   * Mois (`AAAA-MM`) qui portent des jours à voir : signalés au-dessus de la
+   * grille, et joignables d'un clic, quand il y en a plusieurs.
+   */
+  markedMonths?: readonly string[];
+  /** Le jour sur lequel s'ouvre le calendrier, quand ni un choix ni `highlighted` ne le disent. */
+  initialDay?: Day | null;
 };
 
 const EMPTY: Marks = {};
@@ -213,8 +236,16 @@ export function DatePicker({
   disabledLabel,
   label,
   id,
+  badges,
+  retainedDay = null,
+  readOnly = false,
+  markedMonths = [],
+  initialDay = null,
 }: DatePickerProps) {
   const multiple = mode === 'multiple';
+  /** Les en-têtes de colonne et de semaine ne font avancer un groupe que si l'on peut choisir. */
+  const groupable = multiple && !readOnly;
+  const tooltipBase = `${id ?? label.replace(/\W+/g, '-')}-votants`;
   const isRange = mode === 'range';
   const states = multiple ? (givenStates ?? DEFAULT_STATES) : DEFAULT_STATES;
   const count = states.length;
@@ -244,10 +275,13 @@ export function DatePicker({
   const rules: DayRules = useMemo(() => ({ min, max, disabled: disabledSet }), [min, max, disabledSet]);
 
   const [month, setMonth] = useState<Month>(() =>
-    initialMonth({ selected: Object.keys(marks), highlighted, min, today }),
+    initialDay && Object.keys(marks).length === 0
+      ? monthOf(initialDay)
+      : initialMonth({ selected: Object.keys(marks), highlighted, min, today }),
   );
   const [focusDay, setFocusDay] = useState<Day>(
-    () => Object.keys(marks).sort()[0] ?? highlighted[0] ?? (min && min > today ? min : today),
+    () =>
+      Object.keys(marks).sort()[0] ?? initialDay ?? highlighted[0] ?? (min && min > today ? min : today),
   );
   const [view, setView] = useState<View>('days');
   const keyboardMove = useRef(false);
@@ -301,7 +335,7 @@ export function DatePicker({
   }
 
   function choose(day: Day) {
-    if (!isSelectable(day, rules)) return;
+    if (readOnly || !isSelectable(day, rules)) return;
     if (isRange) {
       commitRange(rangeClick(currentRange, day, rules));
       setHover(null);
@@ -353,7 +387,7 @@ export function DatePicker({
   }
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (!(multiple || isRange) || event.button !== 0) return;
+    if (readOnly || !(multiple || isRange) || event.button !== 0) return;
     const day = dayAt(event.clientX, event.clientY);
     if (!day || (isRange && !isSelectable(day, rules))) return;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -478,6 +512,31 @@ export function DatePicker({
         </button>
       </div>
 
+      {markedMonths.length > 1 && view === 'days' ? (
+        <nav aria-label="Mois concernés" className="mt-2 flex flex-wrap items-center gap-1.5">
+          {markedMonths.map((key) => {
+            const target: Month = { year: Number(key.slice(0, 4)), month: Number(key.slice(5, 7)) };
+            const current = compareMonths(target, month) === 0;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setMonth(target)}
+                aria-current={current ? 'true' : undefined}
+                data-marked-month={key}
+                className={`rounded-full px-2.5 py-1 text-xs capitalize transition-colors ${
+                  current
+                    ? 'bg-[var(--color-ember)] text-[var(--color-on-ember)]'
+                    : 'border border-[var(--color-rule-strong)] text-[var(--color-text-muted)] hover:border-[var(--color-ember)] hover:text-[var(--color-ember)]'
+                }`}
+              >
+                {monthTitle(target)}
+              </button>
+            );
+          })}
+        </nav>
+      ) : null}
+
       {view === 'months' ? (
         <div role="group" aria-label={`Mois de ${month.year}`} className={BLOCK_GRID}>
           {Array.from({ length: 12 }, (_, index) => {
@@ -522,13 +581,14 @@ export function DatePicker({
         ref={gridRef}
         role="grid"
         aria-label={`${label}, ${monthTitle(month)}`}
-        aria-multiselectable={multiple || undefined}
+        aria-multiselectable={groupable || undefined}
+        aria-readonly={readOnly || undefined}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={() => setDrag(null)}
         onPointerLeave={isRange ? () => setHover(null) : undefined}
-        className={`mt-2 grid grid-cols-[1.75rem_repeat(7,minmax(0,1fr))] gap-y-1 ${multiple || isRange ? 'touch-none' : ''}`}
+        className={`mt-2 grid grid-cols-[1.75rem_repeat(7,minmax(0,1fr))] gap-y-1 ${groupable || isRange ? 'touch-none' : ''}`}
       >
         <div role="row" className="contents">
           <span role="columnheader" className="label-tech grid place-items-center !text-[0.6rem]">
@@ -536,7 +596,7 @@ export function DatePicker({
             <span className="sr-only">Semaine</span>
           </span>
           {WEEKDAYS.map((weekday, index) =>
-            multiple ? (
+            groupable ? (
               <span key={index} role="columnheader" className="grid place-items-center">
                 <button
                   type="button"
@@ -553,7 +613,7 @@ export function DatePicker({
                 key={index}
                 role="columnheader"
                 aria-label={weekday.long}
-                className="grid h-8 place-items-center font-mono text-[0.7rem] uppercase text-[var(--color-text-faint)]"
+                className="grid h-8 place-items-center font-mono text-[0.7rem] uppercase text-[var(--color-text-subtle)]"
               >
                 {weekday.short}
               </span>
@@ -564,21 +624,21 @@ export function DatePicker({
         {weeks.map((week) => (
           <div key={week.days[0]} role="row" className="contents">
             <span role="rowheader" className="grid place-items-center">
-              {multiple ? (
+              {groupable ? (
                 <button
                   type="button"
                   onClick={() => commit(cycleGroup(marks, week.days, count, rules))}
                   aria-label={`Faire avancer la semaine ${week.week}`}
                   title={`Toute la semaine ${week.week}`}
-                  className="grid h-8 w-7 place-items-center rounded-full font-mono text-[0.6rem] text-[var(--color-text-faint)] transition-colors hover:bg-[var(--color-ink-raised)] hover:text-[var(--color-ember)]"
+                  className="grid h-8 w-7 place-items-center rounded-full font-mono text-[0.6rem] text-[var(--color-text-subtle)] transition-colors hover:bg-[var(--color-ink-raised)] hover:text-[var(--color-ember)]"
                 >
                   {week.week}
                 </button>
               ) : (
-                <span className="font-mono text-[0.6rem] text-[var(--color-text-faint)]">{week.week}</span>
+                <span className="font-mono text-[0.6rem] text-[var(--color-text-subtle)]">{week.week}</span>
               )}
             </span>
-            {week.days.map((day) => {
+            {week.days.map((day, column) => {
               const selectable = isSelectable(day, rules);
               const forbidden = disabledSet.has(day);
               const rank = shown[day] ?? 0;
@@ -587,23 +647,36 @@ export function DatePicker({
               const matched = isHighlighted && rank === 1 && state?.tone === 'fill';
               const previewed = Boolean(inDrag?.has(day) && selectable);
               const between = Boolean(painted && day > painted.start && day < painted.end);
+              const retained = day === retainedDay;
+              const badge = badges?.[day];
+              const tooltipId = badge ? `${tooltipBase}-${day}` : undefined;
               const labelParts = [
                 formatPickerDay(day),
                 painted ? rangeLabel(day, painted) : null,
                 state && multiple && !matched ? state.label : null,
                 matched && matchLabel ? matchLabel : isHighlighted && highlightLabel ? highlightLabel : null,
                 forbidden && disabledLabel ? disabledLabel : null,
+                retained ? 'date retenue' : null,
+                badge ? voteCountLabel(badge.count) : null,
               ].filter(Boolean);
               return (
-                <span key={day} role="gridcell" aria-selected={rank > 0 || between} className="grid place-items-center p-px">
+                <span
+                  key={day}
+                  role="gridcell"
+                  aria-selected={rank > 0 || between}
+                  className="group relative grid place-items-center p-px"
+                >
                   <button
                     type="button"
                     data-day={day}
                     data-mark={state ? state.tone : undefined}
                     data-match={matched ? '' : undefined}
+                    data-retained={retained ? '' : undefined}
+                    data-votes={badge ? badge.count : undefined}
                     tabIndex={day === visibleFocus ? 0 : -1}
-                    aria-disabled={!selectable || undefined}
+                    aria-disabled={(!selectable && !readOnly) || undefined}
                     aria-label={labelParts.join(' - ')}
+                    aria-describedby={tooltipId}
                     aria-current={day === today ? 'date' : undefined}
                     onClick={() => onDayClick(day)}
                     onKeyDown={(event) => onKeyDown(event, day)}
@@ -617,6 +690,8 @@ export function DatePicker({
                       today: day === today,
                       previewed,
                       between,
+                      retained,
+                      readOnly,
                     })}
                   >
                     <span
@@ -640,7 +715,17 @@ export function DatePicker({
                         }`}
                       />
                     ) : null}
+                    {badge ? (
+                      <span
+                        key={badge.count}
+                        aria-hidden="true"
+                        className="badge-pop absolute -right-1 -top-1 grid h-[1.15rem] min-w-[1.15rem] place-items-center rounded-full bg-[var(--color-vote)] px-1 font-mono text-[0.65rem] font-semibold text-[var(--color-on-vote)] ring-2 ring-[var(--color-ink-soft)]"
+                      >
+                        {badge.count}
+                      </span>
+                    ) : null}
                   </button>
+                  {badge ? <VotersTooltip id={tooltipId!} day={day} badge={badge} column={column} /> : null}
                 </span>
               );
             })}
@@ -656,7 +741,7 @@ export function DatePicker({
         </>
       ) : null}
 
-      {!isRange && states.map((state, index) => {
+      {!isRange && !readOnly && states.map((state, index) => {
         const field = state.name ?? (index === 0 ? name : undefined);
         if (!field) return null;
         return daysMarked(marks, index + 1).map((day) => (
@@ -694,7 +779,10 @@ export function DatePicker({
           ) : null}
           {disabledLabel && disabled.length > 0 ? (
             <span className="label-tech inline-flex items-center gap-1.5">
-              <span aria-hidden="true" className="text-[var(--color-rust)] line-through decoration-2">
+              <span
+                aria-hidden="true"
+                className="text-[var(--color-danger)] line-through decoration-[var(--color-rust)] decoration-2"
+              >
                 00
               </span>
               {disabledLabel}
@@ -717,6 +805,15 @@ export function DatePicker({
               setHover(null);
             }}
           />
+        ) : readOnly ? (
+          badges ? (
+            <span className="label-tech inline-flex items-center gap-1.5">
+              <span aria-hidden="true" className="grid size-4 place-items-center rounded-full bg-[var(--color-vote)] font-mono text-[0.6rem] text-[var(--color-on-vote)]">
+                n
+              </span>
+              votes du jour
+            </span>
+          ) : null
         ) : (
         <p aria-live="polite" className="text-xs text-[var(--color-text-muted)]">
           {multiple ? (
@@ -899,14 +996,35 @@ function dayClass(state: {
   previewed: boolean;
   /** Entre les deux bouts d'une plage. */
   between?: boolean;
+  /** La date retenue d'un sondage clos : l'aplat jade, quoi qu'il arrive. */
+  retained?: boolean;
+  /** Consultation : ni curseur de choix, ni survol de choix. */
+  readOnly?: boolean;
 }): string {
   const parts = [
     'relative grid aspect-square w-full max-w-11 place-items-center rounded-[10px] text-sm tabular-nums outline-none transition-[background-color,color,box-shadow] duration-150 motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-[var(--color-ember)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-ink-soft)]',
   ];
 
+  if (state.retained) {
+    parts.push(
+      `${state.readOnly ? 'cursor-default' : 'cursor-pointer'} bg-[var(--color-retained)] font-semibold text-[var(--color-on-retained)] shadow-[0_0_14px_-4px_var(--color-jade)]`,
+    );
+    if (state.today) parts.push('underline decoration-2 underline-offset-4');
+    return parts.join(' ');
+  }
+
+  if (state.readOnly) {
+    parts.push('cursor-default text-[var(--color-text)]');
+    if (state.outside) parts.push('opacity-45');
+    if (state.isHighlighted) parts.push('shadow-[inset_0_0_0_1.5px_var(--color-ember)] font-medium');
+    else if (!state.outside) parts.push('text-[var(--color-text-muted)]');
+    if (state.today) parts.push('underline decoration-[var(--color-ember)] decoration-2 underline-offset-4');
+    return parts.join(' ');
+  }
+
   if (!state.selectable) {
     parts.push('cursor-not-allowed text-[var(--color-text-faint)]');
-    if (!state.forbidden) parts.push('opacity-50');
+    if (!state.forbidden || state.outside) parts.push('opacity-50');
   } else if (state.matched) {
     parts.push(
       'cursor-pointer bg-[var(--color-jade)] font-semibold text-[var(--color-on-jade)] shadow-[0_0_14px_-4px_var(--color-jade)]',
@@ -917,16 +1035,16 @@ function dayClass(state: {
     );
   } else if (state.tone === 'blocked') {
     parts.push(
-      `cursor-pointer font-semibold text-[var(--color-rust)] shadow-[inset_0_0_0_1.5px_var(--color-rust)] ${BLOCKED_HATCH}`,
+      `cursor-pointer font-semibold text-[var(--color-danger)] shadow-[inset_0_0_0_1.5px_var(--color-rust)] ${BLOCKED_HATCH}`,
     );
   } else {
-    parts.push(
-      'cursor-pointer text-[var(--color-text)] hover:bg-[var(--color-ink-raised)] hover:text-[var(--color-ember)]',
-    );
+    // Un jour d'un mois voisin se distingue par un texte plus discret, pas par
+    // de la transparence : il reste un bouton actif, tenu au contraste (SC-009).
+    const tone = state.outside && !state.between ? 'text-[var(--color-text-subtle)]' : 'text-[var(--color-text)]';
+    parts.push(`cursor-pointer ${tone} hover:bg-[var(--color-ink-raised)] hover:text-[var(--color-ember)]`);
   }
 
   if (state.between && state.tone === null && state.selectable) parts.push(RANGE_TINT);
-  if (state.outside && state.tone === null && !state.between) parts.push('opacity-45');
   if (state.isHighlighted && state.tone === null && state.selectable) {
     parts.push('shadow-[inset_0_0_0_1.5px_var(--color-ember)] font-medium');
   }
@@ -935,6 +1053,47 @@ function dayClass(state: {
   }
   if (state.previewed) parts.push('ring-1 ring-[var(--color-incandescent)]');
   return parts.join(' ');
+}
+
+/**
+ * Les votants d'un jour, au survol et au focus clavier (FR-021).
+ *
+ * Toujours dans le document - le bouton du jour le désigne par
+ * `aria-describedby`, un lecteur d'écran le lit donc sans survol -, et
+ * affiché seulement au survol ou au focus : `display: none` au repos, pour
+ * qu'une bulle cachée n'élargisse jamais la page sur un téléphone. Elle est
+ * calée à gauche sur les premières colonnes et à droite sur les dernières,
+ * pour ne pas déborder de l'écran.
+ */
+function VotersTooltip({ id, day, badge, column }: { id: string; day: Day; badge: DayBadge; column: number }) {
+  const { shown, others } = votersSummary(badge.voters);
+  const align = column <= 1 ? 'left-0' : column >= 5 ? 'right-0' : 'left-1/2 -translate-x-1/2';
+  return (
+    <div
+      id={id}
+      role="tooltip"
+      className={`pointer-events-none absolute bottom-full z-30 mb-1.5 hidden w-max max-w-[15rem] rounded-[10px] border border-[var(--color-rule-strong)] bg-[var(--color-ink-raised)] p-3 text-left text-xs shadow-[0_12px_32px_-12px_rgb(0_0_0/0.45)] group-focus-within:block group-hover:block ${align}`}
+    >
+      <p className="mb-1.5 font-semibold text-[var(--color-text)]">
+        {shortDay(day)} · {voteCountLabel(badge.count)}
+      </p>
+      <ul className="flex flex-col gap-0.5 text-[var(--color-text-muted)]">
+        {shown.map((voter, index) => (
+          <li key={`${voter.name}-${index}`} className="flex items-center gap-1.5">
+            <span className="truncate">{voter.name}</span>
+            {voter.account ? (
+              <span className="label-tech !text-[0.55rem] !tracking-[0.08em] text-[var(--color-jade)]">compte</span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+      {others > 0 ? (
+        <p className="mt-1 text-[var(--color-text-subtle)]">
+          et {others} autre{others > 1 ? 's' : ''}
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 function Caret() {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addMonths,
   dateFromDay,
   dayFromDate,
   formatLongDay,
@@ -55,5 +56,18 @@ describe('conversions', () => {
 
   it('écrit un jour en toutes lettres', () => {
     expect(formatLongDay('2026-10-14')).toBe('mercredi 14 octobre 2026');
+  });
+});
+
+describe('addMonths', () => {
+  it('recule ou avance de mois entiers', () => {
+    expect(addMonths('2026-09-30', -12)).toBe('2025-09-30');
+    expect(addMonths('2026-01-15', 1)).toBe('2026-02-15');
+    expect(addMonths('2026-12-15', 1)).toBe('2027-01-15');
+  });
+
+  it('ramène au dernier jour d’un mois plus court', () => {
+    expect(addMonths('2026-03-31', -1)).toBe('2026-02-28');
+    expect(addMonths('2028-02-29', -12)).toBe('2027-02-28');
   });
 });

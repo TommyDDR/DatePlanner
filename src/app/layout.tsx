@@ -5,6 +5,8 @@ import { IDENTITY, SITE_URL } from '@/config/identity';
 import { CspNonceProvider } from '@/components/csp-nonce';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
+import { ThemeScript } from '@/components/theme-script';
+import { ThemeToggle } from '@/components/theme-toggle';
 import './globals.css';
 
 // Les polices de laserit.fr (FR-031), auto-hébergées par next/font : aucune
@@ -60,6 +62,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       suppressHydrationWarning
     >
       <head>
+        {/* Avant toute peinture (FR-030) : sans ce script, un visiteur ayant
+            choisi le thème clair verrait d'abord la page dans le thème de son
+            système. */}
+        <ThemeScript nonce={nonce} />
         {/* Sans JavaScript, rien ne doit rester invisible. */}
         <noscript>
           <style>{'.reveal{opacity:1;transform:none}'}</style>
@@ -73,7 +79,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           >
             Aller au contenu
           </a>
-          <SiteHeader />
+          <SiteHeader themeToggle={<ThemeToggle />} />
           <main id="contenu" className="flex-1">
             {children}
           </main>
