@@ -184,6 +184,7 @@ function AnswerForm({ publicId, pollDays, today, user, existing, badges, markedM
             disabled={disabled}
             highlighted={pickable}
             highlightLabel="jour proposé"
+            matchLabel="jour choisi"
             disabledLabel="non proposé"
             states={AVAILABLE}
             value={marks}
