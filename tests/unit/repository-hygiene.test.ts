@@ -35,15 +35,17 @@ describe('secrets', () => {
     const privateKey = /-----BEGIN [A-Z ]*PRIVATE KEY-----/;
     // Une affectation de secret AVEC valeur : `APP_SECRET=abc`, `SMTP_PASSWORD: "x"`.
     // Les références (`process.env.APP_SECRET`, `$APP_SECRET`) ne comptent pas.
+    // `[ \t]` et non `\s` : une valeur vide ne doit pas être lue avec la ligne
+    // suivante.
     const valuedSecret =
-      /^\s*(?:export\s+)?[A-Z0-9_]*(?:_SECRET|_PASSWORD|CLIENT_SECRET)\s*[=:]\s*["']?(?!\$|["']?\s*$)[^\s"'$]+/m;
+      /^[ \t]*(?:export[ \t]+)?[A-Z0-9_]*(?:_SECRET|_PASSWORD|CLIENT_SECRET)[ \t]*[=:][ \t]*["']?(?!\$)[^\s"'$]+/m;
 
     const offenders: string[] = [];
     for (const path of trackedFiles()) {
       if (!TEXT_EXTENSIONS.test(path) || path.startsWith('tests/')) continue;
-      // La CI écrit des secrets de TEST, publics et propres au job : ce ne
-      // sont pas des secrets du service.
-      if (path === '.github/workflows/ci.yml') continue;
+      // La CI et les parcours de bout en bout portent des valeurs de TEST,
+      // publiques et factices : ce ne sont pas des secrets du service.
+      if (path === '.github/workflows/ci.yml' || path === 'playwright.config.ts') continue;
       const content = readFileSync(path, 'utf8');
       if (privateKey.test(content) || valuedSecret.test(content)) offenders.push(path);
     }
