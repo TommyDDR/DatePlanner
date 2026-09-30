@@ -714,7 +714,12 @@ export function DatePicker({
       leading ? LEADING_LABEL : null,
     ].filter(Boolean);
     return (
-      <span key={day} role="gridcell" aria-selected={rank > 0 || between} className="group relative grid place-items-center p-px">
+      <span
+        key={day}
+        role="gridcell"
+        aria-selected={rank > 0 || between}
+        className={`group relative grid place-items-center p-px ${COLUMN_LAYER[column]} ${badge ? 'hover:z-20 focus-within:z-20' : ''}`}
+      >
         <button
           type="button"
           data-day={day}
@@ -1191,6 +1196,14 @@ function RangeFooter({
 }
 
 const LEADING_LABEL = 'le plus choisi';
+
+/**
+ * Le plan de chaque colonne, décroissant de gauche à droite : la pastille d'un
+ * jour déborde sur la case de droite et doit passer au-dessus d'elle, ce que
+ * l'ordre du document, qui peint la case de droite en dernier, ne permet pas.
+ * Une case à bulle remonte au-dessus de toutes au survol et au focus.
+ */
+const COLUMN_LAYER = ['z-7', 'z-6', 'z-5', 'z-4', 'z-3', 'z-2', 'z-1'] as const;
 
 /** La pastille d'un jour voté, et celle, dorée, d'un jour parmi les plus votés. */
 const VOTE_BADGE = 'bg-[var(--color-vote)] text-[var(--color-on-vote)]';
