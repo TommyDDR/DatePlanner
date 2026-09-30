@@ -1,0 +1,52 @@
+# Passage de maintenance - appelle POST /api/maintenance (research.md R15).
+#
+# Il applique les durées de conservation (sondages, comptes inactifs), envoie
+# les emails en attente, purge sessions, jetons, compteurs anti-flood et
+# vieux emails, puis horodate son passage : /api/sante le signale en retard
+# au bout de trente minutes sans passage.
+#
+# Installation :
+#   sudo cp deploy/dateplanner-maintenance.* /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now dateplanner-maintenance.timer
+#
+# C'est le TIMER qu'on active, pas ce service : lui ne fait qu'un passage.
+# Un passage à la main :
+#   sudo systemctl start dateplanner-maintenance.service
+#   journalctl -u dateplanner-maintenance.service -n 20
+
+[Unit]
+Description=Maintenance de DatePlanner (conservation, emails, purges)
+# `After` seulement : le timer ne doit pas démarrer le service web.
+After=network-online.target dateplanner.service
+
+[Service]
+Type=oneshot
+User=dateplanner
+Group=dateplanner
+WorkingDirectory=/opt/dateplanner
+
+# Le secret est lu dans le même fichier que celui du service web : une seconde
+# copie, ce seraient deux valeurs à tenir d'accord.
+EnvironmentFile=/opt/dateplanner/.env
+
+# Appel en BOUCLE LOCALE : le secret ne sort pas de la machine, et la tâche ne
+# dépend ni du DNS, ni du proxy, ni du certificat. `--retry` couvre un
+# redémarrage du service web.
+#
+# Le secret est développé dans la ligne de commande de curl, donc lisible dans
+# `ps` par un utilisateur local : la VM n'a pas d'autre compte que celui du
+# service et celui de l'administrateur.
+ExecStart=/usr/bin/curl -fsS -o /dev/null --retry 3 --retry-delay 10 \
+    -X POST -H "Authorization: Bearer ${CRON_SECRET}" \
+    http://127.0.0.1:3000/api/maintenance
+
+# La tâche n'écrit rien sur le disque.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dateplanner-maintenance

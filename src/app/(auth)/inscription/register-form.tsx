@@ -36,7 +36,7 @@ export function RegisterForm({ next }: { next: string | undefined }) {
           aria-describedby="displayName-aide"
           className={`field ${errors.displayName ? 'field-error' : ''}`}
         />
-        <p id="displayName-aide" className="mt-1.5 text-sm text-[var(--color-text-faint)]">
+        <p id="displayName-aide" className="mt-1.5 text-sm text-[var(--color-text-subtle)]">
           C’est le nom que verront les personnes qui répondent à vos sondages.
         </p>
         <FieldError id="displayName-erreur" message={errors.displayName} />
@@ -69,7 +69,7 @@ export function RegisterForm({ next }: { next: string | undefined }) {
           invalid={Boolean(errors.password)}
           describedBy="password-aide"
         />
-        <p id="password-aide" className="mt-1.5 text-sm text-[var(--color-text-faint)]">
+        <p id="password-aide" className="mt-1.5 text-sm text-[var(--color-text-subtle)]">
           {PASSWORD_HINT}
         </p>
         <FieldError id="password-erreur" message={errors.password} />

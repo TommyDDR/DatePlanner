@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { GOOGLE_SIGNIN_PARAM, googleSigninNotice } from '@/lib/google-signin-notice';
 import { nextFromParam } from '@/lib/safe-redirect';
 import { getSessionUser } from '@/server/auth/session';
 import { AuthCard } from '../auth-card';
+import { GoogleButton } from '../google-button';
 import { LoginForm } from './login-form';
 
 export const metadata = { title: 'Connexion' };
@@ -15,6 +17,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
   if (await getSessionUser()) redirect(next ?? '/mes-sondages');
 
   const withNext = (path: string) => (next ? `${path}?suite=${encodeURIComponent(next)}` : path);
+  const googleNotice = googleSigninNotice(params[GOOGLE_SIGNIN_PARAM]);
 
   return (
     <AuthCard
@@ -26,7 +29,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
             Pas encore de compte ?{' '}
             <Link
               href={withNext('/inscription')}
-              className="font-medium text-[var(--color-ember)] underline-offset-4 hover:underline"
+              className="font-medium text-[var(--color-ember)] underline underline-offset-4"
             >
               Créer un compte
             </Link>
@@ -39,7 +42,15 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
         </>
       }
     >
-      <LoginForm next={next} />
+      <div className="flex flex-col gap-4">
+        {googleNotice ? (
+          <p role="alert" className="rounded-[10px] border border-[var(--color-rule-strong)] px-4 py-3 text-sm">
+            {googleNotice}
+          </p>
+        ) : null}
+        <GoogleButton next={next} />
+        <LoginForm next={next} />
+      </div>
     </AuthCard>
   );
 }
