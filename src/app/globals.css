@@ -52,6 +52,11 @@
   --color-on-jade: light-dark(#f0fdf4, #0c0a09);
   --color-amber: light-dark(#8a6110, #e8b62c);
   --color-rust: light-dark(#b23c14, #c4491f);
+  /* Propre à DatePlanner : le TEXTE d'une erreur ou d'une action
+     destructrice. En sombre, `rust` de laserit.fr n'offre que 3,8:1 sur la
+     matière ; celui-ci passe 4,9:1 même sur une surface relevée (SC-009).
+     `rust` reste aux bordures, hachures et barrés. */
+  --color-danger: light-dark(#b23c14, #e46a40);
 
   /* Traits */
   --color-rule: light-dark(#e2dbcd, #2a2421);
@@ -247,7 +252,7 @@ fieldset {
     justify-content: center;
     gap: 0.5rem;
     border: 1px solid color-mix(in oklab, var(--color-rust) 55%, transparent);
-    color: var(--color-rust);
+    color: var(--color-danger);
     font-weight: 500;
     padding: 0.625rem 1.125rem;
     border-radius: var(--radius-pill);

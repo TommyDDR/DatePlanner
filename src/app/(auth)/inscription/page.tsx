@@ -24,7 +24,7 @@ export default async function RegisterPage({ searchParams }: { searchParams: Sea
           Déjà un compte ?{' '}
           <Link
             href={next ? `/connexion?suite=${encodeURIComponent(next)}` : '/connexion'}
-            className="font-medium text-[var(--color-ember)] underline-offset-4 hover:underline"
+            className="font-medium text-[var(--color-ember)] underline underline-offset-4"
           >
             Se connecter
           </Link>

@@ -26,7 +26,7 @@ export function SubmitButton({
 export function FieldError({ id, message }: { id: string; message: string | undefined }) {
   if (!message) return null;
   return (
-    <p id={id} className="mt-1.5 text-sm text-[var(--color-rust)]">
+    <p id={id} className="mt-1.5 text-sm text-[var(--color-danger)]">
       {message}
     </p>
   );

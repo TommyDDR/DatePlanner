@@ -3,3 +3,4 @@
 # continuation de ligne, et rien ne le dit avant le premier passage manqué.
 deploy/** text eol=lf
 scripts/*.sh text eol=lf
+scripts/lib/*.mjs text eol=lf
