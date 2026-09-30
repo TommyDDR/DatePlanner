@@ -5,9 +5,9 @@
  *  - `default-src 'self'` : aucune ressource d'une autre origine ;
  *  - `base-uri 'none'` : une balise `<base>` injectée ne peut plus réécrire la
  *    cible des liens et des scripts relatifs de la page ;
- *  - `form-action` : un formulaire ne poste que sur le site, ou vers le
- *    consentement de Google (la connexion Google part d'un formulaire) - c'est
- *    la directive qui empêche un mot de passe de partir sur un autre domaine ;
+ *  - `form-action 'self'` : un formulaire ne poste que sur le site - c'est la
+ *    directive qui empêche un mot de passe de partir sur un autre domaine. Le
+ *    départ vers Google est un LIEN, pas un formulaire : il n'a rien à ouvrir ;
  *  - `object-src 'none'` et `frame-ancestors 'none'` : ni greffon, ni mise en
  *    cadre ;
  *  - `connect-src 'self'` : le site ne parle qu'à lui-même, le flux en direct
@@ -22,8 +22,6 @@
  * `style-src` garde `'unsafe-inline'` : React pose des styles en attribut
  * (`style={…}`), qu'un nonce ne couvre pas. Un style injecté ne s'exécute pas.
  */
-export const GOOGLE_ACCOUNTS_ORIGIN = 'https://accounts.google.com';
-
 export function contentSecurityPolicy({
   nonce,
   isProduction,
@@ -36,7 +34,7 @@ export function contentSecurityPolicy({
     "base-uri 'none'",
     "object-src 'none'",
     "frame-ancestors 'none'",
-    `form-action 'self' ${GOOGLE_ACCOUNTS_ORIGIN}`,
+    "form-action 'self'",
     // `'unsafe-eval'` en développement seulement : React s'en sert pour
     // reconstruire les piles d'erreur du serveur dans le navigateur.
     ["script-src 'self'", ...(nonce ? [`'nonce-${nonce}'`] : []), ...(isProduction ? [] : ["'unsafe-eval'"])].join(

@@ -83,12 +83,14 @@ export async function deliver(id: string): Promise<boolean> {
       });
       return false;
     }
-    const result = await sendEmail({ to: entry.to, ...rendered });
+    const { afterSend, ...email } = rendered;
+    const result = await sendEmail({ to: entry.to, ...email });
     if (result.ok) {
       await prisma.emailOutbox.update({
         where: { id: entry.id },
         data: { status: 'SENT', sentAt: new Date(), attempts: entry.attempts + 1, lastError: null },
       });
+      await afterSend?.();
       return true;
     }
     await markFailure(entry.id, entry.attempts + 1, result.error);
@@ -143,10 +145,14 @@ export async function flushOutbox(limit = 50): Promise<{ sent: number; failed: n
   return { sent, failed: pending.length - sent };
 }
 
-/** Purge des emails envoyés ou annulés au-delà de leur durée de conservation. */
+/**
+ * Purge des emails au-delà de leur durée de conservation : partis, annulés ou
+ * en échec. Un échec garde l'adresse du destinataire ; il reste le temps d'un
+ * diagnostic, pas davantage. Seul un email encore en attente est épargné.
+ */
 export async function purgeOldEmails(olderThan: Date): Promise<number> {
   const { count } = await prisma.emailOutbox.deleteMany({
-    where: { status: { in: ['SENT', 'CANCELLED'] }, createdAt: { lt: olderThan } },
+    where: { status: { in: ['SENT', 'CANCELLED', 'FAILED'] }, createdAt: { lt: olderThan } },
   });
   return count;
 }

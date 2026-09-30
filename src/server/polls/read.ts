@@ -50,6 +50,62 @@ export async function getPollSynthesis(pollId: string): Promise<DayAvailability[
   );
 }
 
+/** Une ligne de « Mes sondages » (FR-024). */
+export type OwnerPollRow = {
+  publicId: string;
+  title: string;
+  respondents: number;
+  createdAt: Date;
+  status: 'OPEN' | 'CLOSED';
+  retainedDay: string | null;
+};
+
+/** Les sondages d'un compte, les plus récents d'abord. Le filtre sur le propriétaire est dans la requête. */
+export async function listOwnerPolls(ownerId: string): Promise<OwnerPollRow[]> {
+  const polls = await prisma.poll.findMany({
+    where: { ownerId },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      publicId: true,
+      title: true,
+      createdAt: true,
+      status: true,
+      retainedDayId: true,
+      days: { select: { id: true, day: true } },
+      _count: { select: { responses: true } },
+    },
+  });
+  return polls.map((poll) => {
+    const retained = poll.retainedDayId ? poll.days.find((d) => d.id === poll.retainedDayId) : undefined;
+    return {
+      publicId: poll.publicId,
+      title: poll.title,
+      respondents: poll._count.responses,
+      createdAt: poll.createdAt,
+      status: poll.status,
+      retainedDay: retained ? dayFromDate(retained.day) : null,
+    };
+  });
+}
+
+/** Une réponse telle que le créateur la modère (FR-039). */
+export type ModeratedResponse = { id: string; name: string; account: boolean; createdAt: Date };
+
+/** Les réponses d'un sondage, pour son SEUL créateur : le filtre sur le propriétaire est dans la requête. */
+export async function listResponsesForOwner(ownerId: string, pollId: string): Promise<ModeratedResponse[]> {
+  const responses = await prisma.response.findMany({
+    where: { pollId, poll: { ownerId } },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, pseudonym: true, createdAt: true, user: { select: { displayName: true } } },
+  });
+  return responses.map((r) => ({
+    id: r.id,
+    name: r.user?.displayName ?? r.pseudonym ?? '',
+    account: r.user !== null,
+    createdAt: r.createdAt,
+  }));
+}
+
 /** La réponse de ce répondant à ce sondage : son pseudo et ses jours. */
 export type OwnResponse = { pseudonym: string | null; days: string[] };
 

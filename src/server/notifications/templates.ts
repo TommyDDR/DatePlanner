@@ -17,6 +17,12 @@ export type RenderedEmail = {
   text: string;
   html: string;
   headers?: Record<string, string>;
+  /**
+   * Ce qui ne doit s'écrire qu'une fois l'email PARTI : le curseur d'un
+   * résumé n'avance pas pour un envoi qui a échoué, sans quoi les réponses
+   * qu'il annonçait ne seraient jamais annoncées.
+   */
+  afterSend?: () => Promise<void>;
 };
 
 const HTML_ESCAPES: Record<string, string> = {

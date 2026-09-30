@@ -4,6 +4,8 @@ import { dayFromDate, type Day } from '@/lib/paris-day';
 import { validateResponseDays } from '@/lib/poll-rules';
 import { RULE_MESSAGES } from '@/lib/validation';
 import { prisma, type Tx } from '@/server/db/client';
+import { scheduleOwnerDigest } from '@/server/notifications/digest';
+import { deliverSoon } from '@/server/notifications/outbox';
 
 /**
  * Réponses à un sondage (FR-013 à FR-019).
@@ -51,7 +53,15 @@ export async function submitResponse(
   // l'unicité, puis se rejoue en mise à jour.
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      return await prisma.$transaction((tx) => writeResponse(tx, publicId, respondent, days, pseudonym, today));
+      const { result, digest } = await prisma.$transaction(async (tx) => {
+        const written = await writeResponse(tx, publicId, respondent, days, pseudonym, today);
+        // Une NOUVELLE réponse programme le résumé du créateur (FR-041), dans
+        // la même transaction : il n'existe que si la réponse existe.
+        const scheduled = written.ok && written.data.created ? await scheduleOwnerDigest(tx, written.data.pollId) : null;
+        return { result: written, digest: scheduled };
+      });
+      if (digest) deliverSoon(digest.id, digest.sendAfter);
+      return result;
     } catch (error) {
       const conflict = error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
       if (!conflict || attempt === 1) throw error;
