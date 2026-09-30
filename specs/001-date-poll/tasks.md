@@ -254,13 +254,13 @@ Projet unique à la racine (plan.md) : `src/`, `prisma/`, `tests/unit/`, `tests/
 
 ### Tests for User Story 6 ⚠️
 
-- [ ] T103 [P] [US6] Écrire `e2e/landing.spec.ts` : appel à l'action visible sans défiler à 1280×800 et 375×667 ; aucun défilement horizontal ; `prefers-reduced-motion: reduce` ⇒ aucune animation en cours, état final affiché ; démonstration et trois étapes présentes ; le bouton mène à `/nouveau` ou `/connexion?suite=/nouveau` ; contenu principal (accroche et bouton) affiché en moins de 2,5 s sous réseau 4G simulé (limitation réseau de Chromium) (FR-032, FR-033, SC-006)
+- [X] T103 [P] [US6] Écrire `e2e/landing.spec.ts` : appel à l'action visible sans défiler à 1280×800 et 375×667 ; aucun défilement horizontal ; `prefers-reduced-motion: reduce` ⇒ aucune animation en cours, état final affiché ; démonstration et trois étapes présentes ; le bouton mène à `/nouveau` ou `/connexion?suite=/nouveau` ; contenu principal (accroche et bouton) affiché en moins de 2,5 s sous réseau 4G simulé (limitation réseau de Chromium) (FR-032, FR-033, SC-006)
 
 ### Implementation for User Story 6
 
-- [ ] T104 [US6] Créer `src/components/landing-demo.tsx` : grille d'un mois en SVG tracée comme un trait de découpe (`stroke-dashoffset`), jours qui s'allument, pastilles qui apparaissent et comptent, date retenue en jade ; animations CSS sur `transform` et `opacity` seulement ; état final sous `prefers-reduced-motion` ; `aria-hidden` avec une description textuelle voisine
-- [ ] T105 [US6] Créer `src/app/page.tsx` : accroche, démonstration, trois étapes, aperçu du partage, second appel à l'action ; métadonnées indexables (titre, description, canonique, Open Graph)
-- [ ] T106 [P] [US6] Créer `src/app/icon.svg` (marque DatePlanner dans l'esprit des icônes de laserit.fr)
+- [X] T104 [US6] Créer `src/components/landing-demo.tsx` : grille d'un mois en SVG tracée comme un trait de découpe (`stroke-dashoffset`), jours qui s'allument, pastilles qui apparaissent et comptent, date retenue en jade ; animations CSS sur `transform` et `opacity` seulement ; état final sous `prefers-reduced-motion` ; `aria-hidden` avec une description textuelle voisine
+- [X] T105 [US6] Créer `src/app/page.tsx` : accroche, démonstration, trois étapes, aperçu du partage, second appel à l'action ; métadonnées indexables (titre, description, canonique, Open Graph)
+- [X] T106 [P] [US6] Créer `src/app/icon.svg` (marque DatePlanner dans l'esprit des icônes de laserit.fr)
 
 **Checkpoint**: US6 fonctionne seule
 

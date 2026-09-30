@@ -400,6 +400,103 @@ fieldset {
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* Démonstration de l'accueil                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * La démonstration du sondage (FR-032) : la grille d'un mois se trace comme
+ * un trait de découpe laser, les jours proposés s'allument, les pastilles de
+ * votes apparaissent et comptent, la date retenue s'illumine en jade.
+ *
+ * N'animent que `transform` et `opacity` : le compositeur s'en charge seul,
+ * sans repeindre la page. Chaque animation garde son état final
+ * (`both`) : sous « réduire les animations », la règle globale les ramène à
+ * l'instant, et la démonstration s'affiche d'emblée dans cet état final.
+ */
+@keyframes demo-trace {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes demo-head {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(var(--run, 0px));
+    opacity: 0;
+  }
+}
+
+@keyframes demo-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes demo-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes demo-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.demo-trace {
+  transform-box: fill-box;
+  transform-origin: left center;
+  animation: demo-trace 1.5s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+.demo-head {
+  animation: demo-head 1.5s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+.demo-fade {
+  animation: demo-fade 0.5s ease-out both;
+  animation-delay: var(--delay, 0s);
+}
+
+.demo-out {
+  animation: demo-out 0.2s ease-in both;
+  animation-delay: var(--delay, 0s);
+}
+
+.demo-pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: demo-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--delay, 0s);
+}
+
 /* Le piège à robots : hors flux, hors lecteur d'écran, hors parcours clavier. */
 .honeypot {
   position: absolute;
