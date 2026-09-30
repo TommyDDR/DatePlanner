@@ -74,6 +74,12 @@
   --color-on-vote: var(--color-on-ember);
   --color-retained: var(--color-jade);
   --color-on-retained: var(--color-on-jade);
+  /* Propres à DatePlanner, nommés de même par leur rôle : le contour doré
+     des jours les plus votés, et l'aplat gris d'un jour déjà voté que le
+     créateur ne peut plus retirer. L'ambre passe 3:1 sur la matière dans les
+     deux modes ; le texte discret posé sur le gris, 4,5:1 (SC-009). */
+  --color-leading: var(--color-amber);
+  --color-locked: var(--color-rule-strong);
 
   /* Les polices sont chargées par next/font, qui expose ces variables. La
      pile de repli reste complète : si le chargement échoue, la page garde une

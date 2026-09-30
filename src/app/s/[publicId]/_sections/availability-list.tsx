@@ -1,4 +1,4 @@
-import { voteCountLabel, type DayAvailability } from '@/lib/availability';
+import { byPopularity, voteCountLabel, type DayAvailability } from '@/lib/availability';
 import { formatLongDay } from '@/lib/paris-day';
 
 /**
@@ -6,8 +6,9 @@ import { formatLongDay } from '@/lib/paris-day';
  *
  * Toujours visible sous le calendrier : c'est elle qui sert l'écran tactile,
  * où le toucher d'un jour reste réservé à la sélection, et les lecteurs
- * d'écran, qui y lisent tout d'un trait. La date retenue y est mise en tête
- * de sa ligne.
+ * d'écran, qui y lisent tout d'un trait. Les jours y vont du plus voté au
+ * moins voté, le plus proche d'abord à égalité : la réponse à « quel jour ? »
+ * est en haut. La date retenue y est mise en tête de sa ligne.
  */
 export function AvailabilityList({
   availability,
@@ -23,7 +24,7 @@ export function AvailabilityList({
 
   return (
     <ul className="flex flex-col divide-y divide-[var(--color-rule)]" data-testid="disponibilites">
-      {availability.map(({ day, count, voters }) => (
+      {byPopularity(availability).map(({ day, count, voters }) => (
         <li key={day} className="flex flex-col gap-1.5 py-3 sm:flex-row sm:items-baseline sm:gap-4">
           <p className="flex shrink-0 items-center gap-2 sm:w-64">
             <span

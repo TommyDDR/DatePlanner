@@ -38,6 +38,28 @@ export function buildAvailability(rows: readonly VoteRow[]): DayAvailability[] {
     }));
 }
 
+/**
+ * Les jours du plus voté au moins voté, pour la liste « Qui est disponible ? ».
+ * À égalité, le plus proche d'abord : c'est celui qu'on aura à organiser en
+ * premier.
+ */
+export function byPopularity(availability: readonly DayAvailability[]): DayAvailability[] {
+  return [...availability].sort((a, b) => b.count - a.count || (a.day < b.day ? -1 : a.day > b.day ? 1 : 0));
+}
+
+/**
+ * Les jours qui réunissent le plus de votants - tous, en cas d'égalité -, que
+ * le calendrier cerne d'or. Aucun tant que personne n'a voté.
+ */
+export function mostVotedDays(availability: readonly Pick<DayAvailability, 'day' | 'count'>[]): string[] {
+  const best = Math.max(0, ...availability.map((day) => day.count));
+  if (best === 0) return [];
+  return availability
+    .filter((day) => day.count === best)
+    .map((day) => day.day)
+    .sort();
+}
+
 /** Les votants à montrer, et combien restent (« et N autres ») au-delà de vingt. */
 export function votersSummary(voters: readonly Voter[], shown: number = POLL_LIMITS.votersShown) {
   return { shown: voters.slice(0, shown), others: Math.max(0, voters.length - shown) };

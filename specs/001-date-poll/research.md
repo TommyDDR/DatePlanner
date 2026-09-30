@@ -153,7 +153,7 @@ reprendre le calendrier, l'identité visuelle et l'infrastructure, et dont la co
   - réponse : mode `multiple`, jours non proposés ou passés passés en `disabled` ;
   - synthèse : **pastille** de nombre de votes par jour, **infobulle** des votants au survol
     et au focus clavier, et sous le calendrier une **liste « Qui est disponible ? »** triée par
-    jour, toujours visible : c'est elle qui sert l'écran tactile (le toucher d'un jour reste
+    nombre de votes puis par jour (décision 031), toujours visible : c'est elle qui sert l'écran tactile (le toucher d'un jour reste
     réservé à la sélection) et les lecteurs d'écran ;
   - les mois qui contiennent des jours proposés sont signalés dans la navigation.
   « Aujourd'hui » est calculé à l'heure de Paris côté serveur et transmis à la page.

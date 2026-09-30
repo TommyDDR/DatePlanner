@@ -100,3 +100,38 @@ test('un sondage sur plusieurs mois s’ouvre sur le premier jour à venir et si
   await chips.last().click();
   await expect(dayButton(page, later)).toBeVisible();
 });
+
+test('les jours vont du plus voté au moins voté, et les plus votés sont cernés d’or', async ({ page }) => {
+  const [early, middle, late] = [dayFromToday(3), dayFromToday(4), dayFromToday(5)];
+  const publicId = await createPoll([early, middle, late]);
+  const poll = await db.poll.findUniqueOrThrow({ where: { publicId }, include: { days: true } });
+  const dayId = (day: string) => poll.days.find((d) => d.day.toISOString().slice(0, 10) === day)!.id;
+  // Deux votes le 4 et le 5, un seul le 3 : à égalité, le plus proche d'abord.
+  for (const [pseudonym, days] of [
+    ['Ana', [middle, late]],
+    ['Bob', [middle]],
+    ['Cy', [late]],
+    ['Dan', [early]],
+  ] as const) {
+    await db.response.create({
+      data: {
+        pollId: poll.id,
+        pseudonym,
+        deviceTokenHash: randomBytes(32).toString('hex'),
+        votes: { create: days.map((day) => ({ pollDayId: dayId(day) })) },
+      },
+    });
+  }
+
+  await page.goto(`/s/${publicId}`);
+  const rows = page.getByTestId('disponibilites').locator('li');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0)).toContainText('Bob');
+  await expect(rows.nth(1)).toContainText('Cy');
+  await expect(rows.nth(2)).toContainText('Dan');
+
+  await expect(dayButton(page, middle)).toHaveAttribute('data-leading', '');
+  await expect(dayButton(page, late)).toHaveAttribute('data-leading', '');
+  await expect(dayButton(page, early)).not.toHaveAttribute('data-leading');
+  await expect(dayButton(page, middle)).toHaveAccessibleName(/le plus choisi/);
+});

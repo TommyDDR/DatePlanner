@@ -9,14 +9,17 @@ export function SubmitButton({
   children,
   pendingLabel,
   className = 'btn-ember',
+  disabled = false,
 }: {
   children: React.ReactNode;
   pendingLabel?: string;
   className?: string;
+  /** Rien à envoyer : le bouton attend. */
+  disabled?: boolean;
 }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" className={className} disabled={pending} aria-disabled={pending}>
+    <button type="submit" className={className} disabled={pending || disabled} aria-disabled={pending || disabled}>
       {pending ? (pendingLabel ?? 'Un instant…') : children}
     </button>
   );

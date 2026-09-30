@@ -33,7 +33,7 @@ import {
   type Marks,
   type Month,
 } from '@/lib/date-picker';
-import { voteCountLabel, votersSummary, type Voter } from '@/lib/availability';
+import { mostVotedDays, voteCountLabel, votersSummary, type Voter } from '@/lib/availability';
 
 /** Ce que porte un jour voté : son nombre de votes et ses votants (FR-020, FR-021). */
 export type DayBadge = { count: number; voters: readonly Voter[] };
@@ -58,8 +58,17 @@ export type DayBadge = { count: number; voters: readonly Voter[] };
  * appliqué avant que le doigt ne se lève.
  *
  * Les jours `disabled` se voient barrés et ne se marquent jamais - ni au
- * clic, ni dans une plage, ni par un groupe. C'est un reflet : le serveur
+ * clic, ni dans une plage, ni par un groupe. Les jours `locked` non plus,
+ * mais sur un aplat gris : ils sont pris, pas exclus - le créateur y lit les
+ * jours déjà votés, qu'il ne peut plus retirer. C'est un reflet : le serveur
  * refait le contrôle, un champ caché retouché ne choisit rien.
+ *
+ * Les jours `withdrawn` sont ceux qu'on s'apprête à retirer : un contour
+ * pointillé les garde en vue jusqu'à l'envoi, et un clic les rétablit.
+ *
+ * Avec des pastilles de votes, les jours qui réunissent le plus de votants
+ * sont cernés d'or : le jour qui arrange le plus de monde se voit sans lire
+ * les chiffres.
  *
  * Un jour mis en évidence (`highlighted`) qui passe au PREMIER état se peint
  * en jade : c'est le jour où les deux parties se rejoignent - le jour proposé
@@ -204,6 +213,16 @@ export type DatePickerProps = {
   matchLabel?: string;
   /** Ce que désignent les jours interdits, pour la légende. */
   disabledLabel?: string;
+  /** Jours montrés sur un aplat gris, qui ne changent pas d'état. */
+  locked?: readonly Day[];
+  /** Ce que désignent les jours verrouillés, pour la légende et le lecteur d'écran. */
+  lockedLabel?: string;
+  /** Jours sur le point d'être retirés : un contour pointillé, jusqu'à l'envoi. */
+  withdrawn?: readonly Day[];
+  /** Ce que désignent les jours à retirer. */
+  withdrawnLabel?: string;
+  /** Remplace le décompte du bas en choix multiple, « Tout effacer » compris. */
+  summary?: React.ReactNode;
   /** Le nom de la grille pour un lecteur d'écran. */
   label: string;
   /**
@@ -260,6 +279,11 @@ export function DatePicker({
   highlightLabel,
   matchLabel,
   disabledLabel,
+  locked = [],
+  lockedLabel,
+  withdrawn = [],
+  withdrawnLabel,
+  summary,
   label,
   id,
   badges,
@@ -298,8 +322,19 @@ export function DatePicker({
   );
   const marks: Marks = isRange ? rangeMarks : (value ?? inner);
   const disabledSet = useMemo(() => new Set(disabled), [disabled]);
+  const lockedSet = useMemo(() => new Set(locked), [locked]);
+  const withdrawnSet = useMemo(() => new Set(withdrawn), [withdrawn]);
   const highlightedSet = useMemo(() => new Set(highlighted), [highlighted]);
-  const rules: DayRules = useMemo(() => ({ min, max, disabled: disabledSet }), [min, max, disabledSet]);
+  const leadingSet = useMemo(
+    () => new Set(badges ? mostVotedDays(Object.entries(badges).map(([day, badge]) => ({ day, count: badge.count }))) : []),
+    [badges],
+  );
+  // Un jour verrouillé se choisit aussi peu qu'un jour interdit : les règles
+  // les écartent ensemble, seule la peinture les distingue.
+  const rules: DayRules = useMemo(
+    () => ({ min, max, disabled: lockedSet.size > 0 ? new Set([...disabledSet, ...lockedSet]) : disabledSet }),
+    [min, max, disabledSet, lockedSet],
+  );
 
   // Les bornes de ce qui est à voir : les jours permis, sinon les jours mis en
   // évidence. Une fenêtre de deux mois ne finit pas au-delà.
@@ -621,7 +656,10 @@ export function DatePicker({
   function renderDay(day: Day, column: number, outside: boolean) {
     const selectable = isSelectable(day, rules);
     const forbidden = disabledSet.has(day);
+    const isLocked = lockedSet.has(day);
     const rank = shown[day] ?? 0;
+    const isWithdrawn = rank === 0 && withdrawnSet.has(day);
+    const leading = leadingSet.has(day);
     const state = rank > 0 ? states[rank - 1]! : null;
     const isHighlighted = highlightedSet.has(day);
     const matched = isHighlighted && rank === 1 && state?.tone === 'fill';
@@ -636,8 +674,11 @@ export function DatePicker({
       state && multiple && !matched ? state.label : null,
       matched && matchLabel ? matchLabel : isHighlighted && highlightLabel ? highlightLabel : null,
       forbidden && disabledLabel ? disabledLabel : null,
+      isLocked && lockedLabel && !retained ? lockedLabel : null,
+      isWithdrawn && withdrawnLabel ? withdrawnLabel : null,
       retained ? 'date retenue' : null,
       badge ? voteCountLabel(badge.count) : null,
+      leading ? LEADING_LABEL : null,
     ].filter(Boolean);
     return (
       <span key={day} role="gridcell" aria-selected={rank > 0 || between} className="group relative grid place-items-center p-px">
@@ -647,6 +688,9 @@ export function DatePicker({
           data-mark={state ? state.tone : undefined}
           data-match={matched ? '' : undefined}
           data-retained={retained ? '' : undefined}
+          data-locked={isLocked ? '' : undefined}
+          data-withdrawn={isWithdrawn ? '' : undefined}
+          data-leading={leading ? '' : undefined}
           data-votes={badge ? badge.count : undefined}
           tabIndex={day === visibleFocus ? 0 : -1}
           aria-disabled={(!selectable && !readOnly) || undefined}
@@ -667,9 +711,20 @@ export function DatePicker({
             between,
             retained,
             readOnly,
+            locked: isLocked,
+            withdrawn: isWithdrawn,
+            leading,
           })}
         >
-          <span className={forbidden || state?.tone === 'blocked' ? 'line-through decoration-[var(--color-rust)] decoration-2' : ''}>
+          <span
+            className={
+              forbidden || state?.tone === 'blocked'
+                ? 'line-through decoration-[var(--color-rust)] decoration-2'
+                : isWithdrawn
+                  ? 'line-through decoration-[var(--color-ember)] decoration-2'
+                  : ''
+            }
+          >
             {Number(day.slice(8, 10))}
           </span>
           {isHighlighted ? (
@@ -846,7 +901,8 @@ export function DatePicker({
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-[var(--color-rule)] pt-3">
         <div className="flex flex-wrap gap-x-4 gap-y-1">
-          {multiple && count > 1
+          {/* Un seul état se passe de nom, sauf à côté de jours verrouillés : l'aplat doit se distinguer du gris. */}
+          {multiple && (count > 1 || (lockedLabel && locked.length > 0))
             ? states.map((state) => (
                 <span key={state.label} className="label-tech inline-flex items-center gap-1.5">
                   <Swatch tone={state.tone} />
@@ -883,6 +939,24 @@ export function DatePicker({
               {disabledLabel}
             </span>
           ) : null}
+          {lockedLabel && locked.length > 0 ? (
+            <span className="label-tech inline-flex items-center gap-1.5">
+              <span aria-hidden="true" className="size-3 rounded-[4px] bg-[var(--color-locked)]" />
+              {lockedLabel}
+            </span>
+          ) : null}
+          {withdrawnLabel && withdrawn.length > 0 ? (
+            <span className="label-tech inline-flex items-center gap-1.5">
+              <span aria-hidden="true" className="size-3 rounded-[4px] border-[1.5px] border-dashed border-[var(--color-ember)]" />
+              {withdrawnLabel}
+            </span>
+          ) : null}
+          {leadingSet.size > 0 ? (
+            <span className="label-tech inline-flex items-center gap-1.5">
+              <span aria-hidden="true" className="size-3 rounded-[4px] ring-2 ring-[var(--color-leading)]" />
+              {LEADING_LABEL}
+            </span>
+          ) : null}
         </div>
         {isRange ? (
           <RangeFooter
@@ -909,6 +983,8 @@ export function DatePicker({
               votes du jour
             </span>
           ) : null
+        ) : multiple && summary !== undefined ? (
+          summary
         ) : (
         <p aria-live="polite" className="text-xs text-[var(--color-text-muted)]">
           {multiple ? (
@@ -1072,6 +1148,11 @@ function RangeFooter({
   );
 }
 
+const LEADING_LABEL = 'le plus choisi';
+
+/** Le contour doré d'un jour parmi les plus votés : un anneau, qui se pose sur n'importe quel aplat. */
+const LEADING_RING = 'ring-2 ring-[var(--color-leading)]';
+
 const BLOCKED_HATCH =
   'bg-[repeating-linear-gradient(135deg,transparent_0_5px,color-mix(in_oklab,var(--color-rust)_30%,transparent)_5px_7px)]';
 
@@ -1102,14 +1183,21 @@ function dayClass(state: {
   retained?: boolean;
   /** Consultation : ni curseur de choix, ni survol de choix. */
   readOnly?: boolean;
+  /** Pris et figé : l'aplat gris. */
+  locked?: boolean;
+  /** Sur le point d'être retiré : le contour pointillé. */
+  withdrawn?: boolean;
+  /** Parmi les jours qui réunissent le plus de votants : le contour doré, quel que soit l'aplat. */
+  leading?: boolean;
 }): string {
   const parts = [
     'relative grid aspect-square w-full max-w-11 place-items-center rounded-[10px] text-sm tabular-nums outline-none transition-[background-color,color,box-shadow] duration-150 motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-[var(--color-ember)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-ink-soft)]',
   ];
+  if (state.leading) parts.push(LEADING_RING);
 
   if (state.retained) {
     parts.push(
-      `${state.readOnly ? 'cursor-default' : 'cursor-pointer'} bg-[var(--color-retained)] font-semibold text-[var(--color-on-retained)] shadow-[0_0_14px_-4px_var(--color-jade)]`,
+      `${state.readOnly || state.locked ? 'cursor-default' : 'cursor-pointer'} bg-[var(--color-retained)] font-semibold text-[var(--color-on-retained)] shadow-[0_0_14px_-4px_var(--color-jade)]`,
     );
     if (state.today) parts.push('underline decoration-2 underline-offset-4');
     return parts.join(' ');
@@ -1120,6 +1208,12 @@ function dayClass(state: {
     if (state.outside) parts.push('opacity-45');
     if (state.isHighlighted) parts.push('shadow-[inset_0_0_0_1.5px_var(--color-ember)] font-medium');
     else if (!state.outside) parts.push('text-[var(--color-text-muted)]');
+    if (state.today) parts.push('underline decoration-[var(--color-ember)] decoration-2 underline-offset-4');
+    return parts.join(' ');
+  }
+
+  if (state.locked) {
+    parts.push('cursor-not-allowed bg-[var(--color-locked)] font-medium text-[var(--color-text-muted)]');
     if (state.today) parts.push('underline decoration-[var(--color-ember)] decoration-2 underline-offset-4');
     return parts.join(' ');
   }
@@ -1138,6 +1232,10 @@ function dayClass(state: {
   } else if (state.tone === 'blocked') {
     parts.push(
       `cursor-pointer font-semibold text-[var(--color-danger)] shadow-[inset_0_0_0_1.5px_var(--color-rust)] ${BLOCKED_HATCH}`,
+    );
+  } else if (state.withdrawn) {
+    parts.push(
+      'cursor-pointer border-[1.5px] border-dashed border-[var(--color-ember)] text-[var(--color-text-muted)] hover:bg-[var(--color-ink-raised)] hover:text-[var(--color-ember)]',
     );
   } else {
     // Un jour d'un mois voisin se distingue par un texte plus discret, pas par

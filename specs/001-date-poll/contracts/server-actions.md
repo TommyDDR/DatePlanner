@@ -47,8 +47,7 @@ Toutes exigent une session ; toute écriture porte `WHERE owner_id = :session` e
 |---|---|---|---|---|
 | `createPoll` | `title` (1–120), `description?` (≤ 2000), `days: Day[]` (1–366, uniques, ≥ aujourd'hui Paris), `requireAccount`, `notifyOwner` | `{ publicId }` | `VALIDATION`, `RATE_LIMITED` | FR-007–012, FR-040, FR-041 |
 | `updatePollDetails` | `publicId`, `title`, `description?` | publié aux abonnés | `VALIDATION`, `NOT_FOUND` | FR-025 |
-| `addPollDays` | `publicId`, `days: Day[]` (≥ aujourd'hui, total ≤ 366) | jours ajoutés, doublons ignorés | `VALIDATION`, `NOT_FOUND` | FR-027 |
-| `removePollDay` | `publicId`, `day` | jour retiré | `DAY_HAS_VOTES`, `LAST_DAY`, `NOT_FOUND` | FR-027 |
+| `changePollDays` | `publicId`, `add: Day[]` (≥ aujourd'hui, total ≤ 366), `remove: Day[]` (jours du sondage sans vote, hors date retenue) | jours ajoutés (doublons ignorés) et retirés, tout ou rien ; refusé pour `DAY_HAS_VOTES`, la page est relue | `VALIDATION`, `DAY_HAS_VOTES`, `LAST_DAY`, `NOT_FOUND` | FR-027 |
 | `setPollOptions` | `publicId`, `requireAccount?`, `notifyOwner?` | options enregistrées | `NOT_FOUND` | FR-040, FR-041 |
 | `closePoll` | `publicId`, `retainedDay?: Day` (jour du sondage) | `CLOSED` ; annonce FR-042 mise en file si `retainedDay` | `VALIDATION`, `NOT_FOUND` (dont déjà clos) | FR-026, FR-042 |
 | `setRetainedDay` | `publicId`, `retainedDay: Day \| null` | date changée ; annonce si nouvelle date non nulle | `VALIDATION` (jour étranger au sondage), `NOT_FOUND` (sondage absent ou encore ouvert) | FR-026, FR-042 |

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAvailability, voteCountLabel, votersSummary } from '@/lib/availability';
+import { buildAvailability, byPopularity, mostVotedDays, voteCountLabel, votersSummary } from '@/lib/availability';
 
 /** Synthèse des votes (FR-020, FR-021). */
 
@@ -31,6 +31,36 @@ describe('buildAvailability', () => {
     ]);
     expect(day!.count).toBe(2);
     expect(day!.voters).toHaveLength(2);
+  });
+});
+
+const synthesis = (counts: Record<string, number>) =>
+  Object.entries(counts).map(([day, count]) => ({ day, count, voters: [] }));
+
+describe('byPopularity', () => {
+  it('range du plus voté au moins voté, le plus proche d’abord à égalité', () => {
+    const days = byPopularity(synthesis({ '2026-10-01': 1, '2026-10-09': 3, '2026-10-04': 3, '2026-10-02': 2 }));
+    expect(days.map((d) => d.day)).toEqual(['2026-10-04', '2026-10-09', '2026-10-02', '2026-10-01']);
+  });
+
+  it('laisse la synthèse d’origine dans l’ordre du calendrier', () => {
+    const availability = synthesis({ '2026-10-01': 1, '2026-10-02': 2 });
+    byPopularity(availability);
+    expect(availability.map((d) => d.day)).toEqual(['2026-10-01', '2026-10-02']);
+  });
+});
+
+describe('mostVotedDays', () => {
+  it('rend les jours qui réunissent le plus de votants, tous à égalité', () => {
+    expect(mostVotedDays(synthesis({ '2026-10-09': 3, '2026-10-01': 1, '2026-10-04': 3 }))).toEqual([
+      '2026-10-04',
+      '2026-10-09',
+    ]);
+  });
+
+  it('ne rend rien tant que personne n’a voté', () => {
+    expect(mostVotedDays([])).toEqual([]);
+    expect(mostVotedDays(synthesis({ '2026-10-01': 0 }))).toEqual([]);
   });
 });
 

@@ -7,14 +7,13 @@ import type { ActionResult } from '@/lib/action-result';
 import { isBot, type FormState } from '@/lib/form-state';
 import { todayInParis } from '@/lib/paris-day';
 import {
-  addPollDaysSchema,
+  changePollDaysSchema,
   closePollSchema,
   deleteResponseSchema,
   fieldErrors,
   pollOnlySchema,
   pseudonymSchema,
   readForm,
-  removePollDaySchema,
   setPollOptionsSchema,
   setRetainedDaySchema,
   submitResponseSchema,
@@ -23,7 +22,7 @@ import {
 import { ensureDeviceToken, readDeviceTokenHash } from '@/server/auth/device';
 import { getSessionUser } from '@/server/auth/session';
 import { publish, type LiveEventKind } from '@/server/events/bus';
-import { addPollDays, deletePoll, deleteResponse, removePollDay, setPollOptions, updatePollDetails } from '@/server/polls/edit';
+import { changePollDays, deletePoll, deleteResponse, setPollOptions, updatePollDetails } from '@/server/polls/edit';
 import { submitResponse, withdrawResponse, type Respondent } from '@/server/polls/responses';
 import { closePoll, reopenPoll, setRetainedDay } from '@/server/polls/state';
 import { consume, currentIp } from '@/server/ratelimit';
@@ -109,18 +108,22 @@ export async function updatePollDetailsAction(_previous: FormState, form: FormDa
   return ownerAction(form, updatePollDetailsSchema, (ownerId, input) => updatePollDetails(ownerId, input.publicId, input), 'poll');
 }
 
-export async function addPollDaysAction(_previous: FormState, form: FormData): Promise<FormState> {
-  return ownerAction(
+/**
+ * Les jours ajoutés et retirés depuis le calendrier du créateur, d'un seul
+ * envoi. Refusé parce qu'un jour vient d'être voté, l'envoi relit quand même
+ * la page : le créateur voit aussitôt ce jour passer au gris.
+ */
+export async function changePollDaysAction(_previous: FormState, form: FormData): Promise<FormState> {
+  const state = await ownerAction(
     form,
-    addPollDaysSchema,
-    (ownerId, input) => addPollDays(ownerId, input.publicId, input.days, todayInParis(new Date())),
+    changePollDaysSchema,
+    (ownerId, input) => changePollDays(ownerId, input.publicId, input, todayInParis(new Date())),
     'poll',
-    ['days'],
+    ['add', 'remove'],
   );
-}
-
-export async function removePollDayAction(_previous: FormState, form: FormData): Promise<FormState> {
-  return ownerAction(form, removePollDaySchema, (ownerId, input) => removePollDay(ownerId, input.publicId, input.day), 'poll');
+  const publicId = form.get('publicId');
+  if (state?.error?.code === 'DAY_HAS_VOTES' && typeof publicId === 'string') revalidatePath(`/s/${publicId}`);
+  return state;
 }
 
 export async function setPollOptionsAction(_previous: FormState, form: FormData): Promise<FormState> {
