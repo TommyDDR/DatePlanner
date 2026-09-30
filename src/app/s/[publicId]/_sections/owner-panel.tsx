@@ -268,7 +268,7 @@ function DaysSection({ publicId, days, votesByDay, retainedDay, today }: Props) 
                     <>
                       {hidden}
                       <input type="hidden" name="day" value={day} />
-                      <SubmitButton className="text-sm text-[var(--color-rust)] underline-offset-4 hover:underline">
+                      <SubmitButton className="text-sm text-[var(--color-danger)] underline-offset-4 hover:underline">
                         <span>
                           Retirer<span className="sr-only"> le {formatLongDay(day)}</span>
                         </span>

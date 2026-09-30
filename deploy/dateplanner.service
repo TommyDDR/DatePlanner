@@ -1,0 +1,52 @@
+# Unité systemd - DatePlanner (Next.js) en production.
+#
+# Installation :
+#   sudo cp deploy/dateplanner.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now dateplanner
+#
+# Le proxy Traefik est sur une AUTRE machine (VM proxy, deploy/traefik/) :
+# ajouter le complément deploy/dateplanner-proxy-distant.conf.
+
+[Unit]
+Description=DatePlanner - sondages de dates (Next.js)
+# La base est sur la même machine : démarrer avant elle ferait échouer les
+# premières requêtes le temps que PostgreSQL accepte les connexions.
+After=network-online.target postgresql.service
+Wants=network-online.target
+# Au-delà de cinq démarrages en une minute, systemd abandonne : une erreur de
+# configuration ne tourne pas en boucle. Ces deux clés appartiennent à [Unit].
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=simple
+User=dateplanner
+Group=dateplanner
+WorkingDirectory=/opt/dateplanner
+
+# Les secrets vivent dans un fichier lisible du seul utilisateur du service.
+# Les écrire ici les exposerait dans `systemctl show`, lisible de tous.
+EnvironmentFile=/opt/dateplanner/.env
+Environment=NODE_ENV=production
+Environment=PORT=3000
+
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next start --port 3000
+
+Restart=always
+RestartSec=5
+
+# Cloisonnement : le service n'écrit que dans le cache de Next. Tout le reste
+# du disque lui est en lecture seule.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+ReadWritePaths=/opt/dateplanner/.next
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dateplanner
+
+[Install]
+WantedBy=multi-user.target

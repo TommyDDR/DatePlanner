@@ -64,7 +64,7 @@ export function ResponseForm(props: Props) {
           Le créateur de ce sondage demande de répondre avec un compte.{' '}
           <Link
             href={`/connexion?suite=${encodeURIComponent(`/s/${publicId}`)}`}
-            className="font-medium text-[var(--color-ember)] underline-offset-4 hover:underline"
+            className="font-medium text-[var(--color-ember)] underline underline-offset-4"
           >
             Se connecter pour répondre
           </Link>
@@ -158,7 +158,7 @@ function AnswerForm({ publicId, pollDays, today, user, existing, badges, markedM
               Visible par toutes les personnes qui ont le lien.{' '}
               <Link
                 href={`/connexion?suite=${encodeURIComponent(`/s/${publicId}`)}`}
-                className="text-[var(--color-ember)] underline-offset-4 hover:underline"
+                className="text-[var(--color-ember)] underline underline-offset-4"
               >
                 Se connecter pour répondre
               </Link>

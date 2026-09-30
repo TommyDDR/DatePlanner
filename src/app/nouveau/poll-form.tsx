@@ -83,7 +83,7 @@ export function PollForm({ today }: { today: string }) {
           onChange={setMarks}
         />
         {tooMany ? (
-          <p className="text-sm text-[var(--color-rust)]">Un sondage propose au plus {POLL_LIMITS.maxDays} jours.</p>
+          <p className="text-sm text-[var(--color-danger)]">Un sondage propose au plus {POLL_LIMITS.maxDays} jours.</p>
         ) : null}
         <FieldError id="jours-erreur" message={errors.days} />
       </fieldset>
