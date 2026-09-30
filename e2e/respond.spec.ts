@@ -47,6 +47,11 @@ test('répondre sans compte, retrouver, modifier puis retirer sa réponse', asyn
   await notProposed.click({ force: true });
   await expect(page.locator(`input[name="days"][value="${dayFromToday(4)}"]`)).toHaveCount(0);
 
+  // Le jour choisi est en vert, et la légende le nomme.
+  await expect(dayButton(page, dayFromToday(3))).toHaveAttribute('data-match', '');
+  await expect(dayButton(page, dayFromToday(3))).toHaveAccessibleName(/jour choisi/);
+  await expect(page.locator('.date-picker').getByText('jour choisi', { exact: true })).toBeVisible();
+
   // Scénario 1 : réponse sans compte.
   await page.getByLabel('Votre nom ou un pseudo').fill('Léa');
   await page.getByRole('button', { name: 'Valider ma réponse' }).click();
