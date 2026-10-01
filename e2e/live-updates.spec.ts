@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { randomBytes } from 'node:crypto';
-import { dayButton, dayFromToday, db, resetDatabase } from './helpers';
+import { dayButton, dayCenter, dayFromToday, db, finger, resetDatabase } from './helpers';
 
 /**
  * US3 - Voir qui est disponible, à jour pour tout le monde (scénarios 1 à 5,
@@ -84,6 +84,49 @@ test('sur téléphone, la liste des disponibilités reste lisible sans survol', 
   await expect(dayButton(page, day)).toHaveAttribute('data-votes', '1');
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
+  await phone.close();
+});
+
+test('au doigt, un appui long montre les votants du jour sans le choisir', async ({ browser }) => {
+  const [voted, other] = [dayFromToday(3), dayFromToday(4)];
+  const publicId = await createPoll([voted, other]);
+  const poll = await db.poll.findUniqueOrThrow({ where: { publicId }, include: { days: true } });
+  const votedId = poll.days.find((d) => d.day.toISOString().slice(0, 10) === voted)!.id;
+  await db.response.create({
+    data: {
+      pollId: poll.id,
+      pseudonym: 'Noé',
+      deviceTokenHash: randomBytes(32).toString('hex'),
+      votes: { create: [{ pollDayId: votedId }] },
+    },
+  });
+
+  const phone = await browser.newContext({ viewport: { width: 375, height: 740 }, hasTouch: true, isMobile: true });
+  const page = await phone.newPage();
+  await page.goto(`/s/${publicId}`);
+  // Une tape choisit le jour, sans ouvrir de bulle : la page est hydratée.
+  await dayButton(page, other).tap();
+  await expect(dayButton(page, other)).toHaveAttribute('data-mark', 'fill');
+  await dayButton(page, voted).tap();
+  await expect(dayButton(page, voted)).toHaveAttribute('data-mark', 'fill');
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
+  await dayButton(page, voted).tap();
+  await expect(dayButton(page, voted)).not.toHaveAttribute('data-mark');
+
+  // L'appui long ouvre la bulle, et le jour ne bascule pas.
+  const at = await dayCenter(page, voted);
+  const touch = await finger(page);
+  await touch.down(at.x, at.y);
+  await page.waitForTimeout(600);
+  await touch.up();
+  const tooltip = page.getByRole('tooltip');
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toContainText('Noé');
+  await expect(dayButton(page, voted)).not.toHaveAttribute('data-mark');
+
+  // Le toucher suivant la referme.
+  await page.getByRole('heading', { level: 1 }).tap();
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
   await phone.close();
 });
 

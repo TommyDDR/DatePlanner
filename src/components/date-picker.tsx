@@ -57,6 +57,11 @@ export type DayBadge = { count: number; voters: readonly Voter[] };
  * trouve. L'aperçu du glissé se peint pendant le geste, et rien n'est
  * appliqué avant que le doigt ne se lève.
  *
+ * Au doigt, la grille laisse d'abord défiler la page : un geste qui bouge
+ * d'emblée est un défilement, et le glissé attend un APPUI LONG. Tenu sur
+ * place, l'appui montre les votants du jour (`badges`) sans le choisir ;
+ * prolongé d'un jour à l'autre, il glisse. Une tape reste une tape.
+ *
  * Les jours `disabled` se voient barrés et ne se marquent jamais - ni au
  * clic, ni dans une plage, ni par un groupe. Les jours `locked` non plus,
  * mais sur un aplat gris : ils sont pris, pas exclus - le créateur y lit les
@@ -234,7 +239,8 @@ export type DatePickerProps = {
   id?: string;
   /**
    * Pastilles de votes : pour chaque jour voté, le nombre de votes et les
-   * votants, montrés dans une infobulle au survol et au focus clavier.
+   * votants, montrés dans une infobulle au survol, au focus clavier et, au
+   * doigt, sur un appui long.
    */
   badges?: Readonly<Record<Day, DayBadge>>;
   /** La date retenue d'un sondage clos : un aplat jade. */
@@ -306,7 +312,11 @@ export function DatePicker({
   const [innerRange, setInnerRange] = useState<DayRange>(() => defaultRange ?? EMPTY_RANGE);
   const currentRange = range ?? innerRange;
   const [hover, setHover] = useState<Day | null>(null);
-  const [drag, setDrag] = useState<{ anchor: Day; over: Day } | null>(null);
+  // `held` : lancé au doigt par un appui long ; `peeked` : cet appui a montré
+  // les votants du jour d'ancrage.
+  const [drag, setDrag] = useState<{ anchor: Day; over: Day; held?: boolean; peeked?: boolean } | null>(null);
+  /** Le jour dont l'appui long a ouvert la bulle des votants. */
+  const [peek, setPeek] = useState<Day | null>(null);
   // Un glissé en cours peint la plage qu'il poserait au relâcher ; sinon la
   // plage choisie, ouverte jusqu'au jour survolé.
   const painted = !isRange
@@ -384,6 +394,10 @@ export function DatePicker({
   const keyboardMove = useRef(false);
   const viewMove = useRef(false);
   const pointerHandled = useRef(false);
+  /** Un appui au doigt qui n'est pas encore long : où il a commencé, et son minuteur. */
+  const press = useRef<{ x: number; y: number; timer: number } | null>(null);
+  /** Vrai d'un appui long jusqu'au relâcher : la page ne défile plus sous le doigt. */
+  const holding = useRef(false);
   const gridRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -448,6 +462,27 @@ export function DatePicker({
     const selector = view === 'days' ? '[data-day][tabindex="0"]' : '[data-view-current]';
     rootRef.current?.querySelector<HTMLButtonElement>(selector)?.focus();
   }, [view, month]);
+
+  // Un appui long garde le geste : `touch-action` ne change pas en cours de
+  // geste, seul un `touchmove` annulé empêche la page de défiler. React pose
+  // ses écouteurs tactiles en passif, d'où celui-ci, posé à la main.
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const keep = (event: TouchEvent) => {
+      if (holding.current && event.cancelable) event.preventDefault();
+    };
+    grid.addEventListener('touchmove', keep, { passive: false });
+    return () => grid.removeEventListener('touchmove', keep);
+  }, [view]);
+
+  // La bulle ouverte par un appui long tient jusqu'au prochain toucher.
+  useEffect(() => {
+    if (peek === null) return;
+    const close = () => setPeek(null);
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, [peek]);
 
   function commit(next: Marks) {
     if (value === undefined) setInner(next);
@@ -515,16 +550,62 @@ export function DatePicker({
     // Un geste précédent resté sans clic (un glissé au doigt n'en produit
     // pas) ne doit pas avaler celui de ce geste-ci.
     pointerHandled.current = false;
-    if (readOnly || !(multiple || isRange) || event.button !== 0) return;
+    cancelPress();
+    if (event.button !== 0) return;
     const day = dayAt(event.clientX, event.clientY);
-    if (!day || (isRange && !isSelectable(day, rules))) return;
+    if (!day) return;
+    const draggable = !readOnly && (multiple || isRange) && !(isRange && !isSelectable(day, rules));
+    if (event.pointerType === 'touch') {
+      // Au doigt, rien ne part tout de suite : un geste qui bouge d'emblée
+      // fait défiler la page, seul l'appui qui tient prend la main.
+      if (!draggable && !badges?.[day]) return;
+      press.current = {
+        x: event.clientX,
+        y: event.clientY,
+        timer: window.setTimeout(() => hold(day, draggable), HOLD_MS),
+      };
+      return;
+    }
+    if (!draggable) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     setDrag({ anchor: day, over: day });
     setFocusDay(day);
   }
 
+  /** L'appui a tenu : la bulle des votants s'ouvre, et le glissé est prêt. */
+  function hold(day: Day, draggable: boolean) {
+    press.current = null;
+    holding.current = true;
+    const peeked = Boolean(badges?.[day]);
+    if (peeked) setPeek(day);
+    if (draggable) {
+      setDrag({ anchor: day, over: day, held: true, peeked });
+      setFocusDay(day);
+    }
+    // Sans geste antérieur sur la page, le navigateur refuse la vibration.
+    if (navigator.userActivation?.hasBeenActive) navigator.vibrate?.(10);
+  }
+
+  function cancelPress() {
+    if (press.current) window.clearTimeout(press.current.timer);
+    press.current = null;
+  }
+
   function onPointerMove(event: PointerEvent<HTMLDivElement>) {
+    if (press.current) {
+      // Le doigt part avant l'appui long : c'est un défilement.
+      const { x, y } = press.current;
+      if (Math.hypot(event.clientX - x, event.clientY - y) > HOLD_SLOP_PX) cancelPress();
+      return;
+    }
     const day = dayAt(event.clientX, event.clientY);
+    if (holding.current && !drag) {
+      // Rien à choisir : le doigt promène la bulle d'un jour voté à l'autre.
+      setPeek(day && badges?.[day] ? day : null);
+      return;
+    }
+    // Le glissé quitte le jour d'ancrage : la bulle laisse voir la grille.
+    if (peek !== null && drag && day !== drag.anchor) setPeek(null);
     if (isRange) {
       // Une plage ne s'étend pas sur un jour qu'on ne peut pas choisir.
       if (!day || !isSelectable(day, rules)) return;
@@ -540,6 +621,8 @@ export function DatePicker({
   }
 
   function onPointerUp() {
+    cancelPress();
+    holding.current = false;
     if (!drag) return;
     // Le pointeur est capturé par la grille : le clic qui suit tombe sur
     // elle, ou sur le bouton selon le navigateur. Il n'arrive pas toujours
@@ -547,8 +630,11 @@ export function DatePicker({
     // toucher reconnu comme une tape. Le drapeau tient donc jusqu'à ce clic,
     // que la grille éteint au passage.
     pointerHandled.current = true;
-    if (drag.anchor === drag.over) choose(drag.anchor);
-    else if (isRange) {
+    if (drag.anchor === drag.over) {
+      // Relâché sur place, l'appui long qui a montré les votants n'était
+      // qu'un coup d'œil : le jour ne bascule pas.
+      if (!drag.peeked) choose(drag.anchor);
+    } else if (isRange) {
       // Glisser d'un jour à l'autre pose la plage d'un geste, sans passer
       // par le premier clic.
       const dragged = rangeShown({ start: drag.anchor, end: null }, drag.over)!;
@@ -702,6 +788,9 @@ export function DatePicker({
     const retained = day === retainedDay;
     const badge = badges?.[day];
     const tooltipId = badge ? `${tooltipBase}-${day}` : undefined;
+    const peeked = Boolean(badge) && day === peek;
+    // Le jour sous un appui long qui n'a pas encore glissé.
+    const held = Boolean(drag?.held && drag.anchor === drag.over && day === drag.anchor);
     const labelParts = [
       formatPickerDay(day),
       painted ? rangeLabel(day, painted) : null,
@@ -719,7 +808,7 @@ export function DatePicker({
         key={day}
         role="gridcell"
         aria-selected={rank > 0 || between}
-        className={`group relative grid place-items-center p-px ${COLUMN_LAYER[column]} ${badge ? 'hover:z-20 focus-within:z-20' : ''}`}
+        className={`group relative grid place-items-center p-px ${peeked ? 'z-20' : COLUMN_LAYER[column]} ${badge ? 'hover:z-20 focus-within:z-20' : ''}`}
       >
         <button
           type="button"
@@ -738,7 +827,7 @@ export function DatePicker({
           aria-current={day === today ? 'date' : undefined}
           onClick={() => onDayClick(day)}
           onKeyDown={(event) => onKeyDown(event, day)}
-          className={dayClass({
+          className={`peer ${dayClass({
             selectable,
             forbidden,
             tone: state?.tone ?? null,
@@ -752,7 +841,8 @@ export function DatePicker({
             readOnly,
             locked: isLocked,
             withdrawn: isWithdrawn,
-          })}
+            held,
+          })}`}
         >
           <span
             className={
@@ -790,7 +880,7 @@ export function DatePicker({
             </span>
           ) : null}
         </button>
-        {badge ? <VotersTooltip id={tooltipId!} day={day} badge={badge} column={column} /> : null}
+        {badge ? <VotersTooltip id={tooltipId!} day={day} badge={badge} column={column} open={peeked} /> : null}
       </span>
     );
   }
@@ -917,13 +1007,23 @@ export function DatePicker({
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          onPointerCancel={() => setDrag(null)}
+          // Le navigateur a pris le geste : c'était un défilement.
+          onPointerCancel={() => {
+            cancelPress();
+            holding.current = false;
+            setDrag(null);
+            setPeek(null);
+          }}
           onPointerLeave={isRange ? () => setHover(null) : undefined}
+          // Sur Android, l'appui long ouvrirait aussi le menu contextuel.
+          onContextMenu={(event) => {
+            if (press.current || holding.current) event.preventDefault();
+          }}
           // Le bouton du jour a vu le clic avant elle : le geste est soldé.
           onClick={() => {
             pointerHandled.current = false;
           }}
-          className={`mt-2 flex flex-wrap justify-center gap-x-6 gap-y-4 ${groupable || isRange ? 'touch-none' : ''}`}
+          className="mt-2 flex touch-pan-y touch-pinch-zoom flex-wrap justify-center gap-x-6 gap-y-4 [-webkit-touch-callout:none]"
         >
           {panes.map(renderMonth)}
         </div>
@@ -1203,6 +1303,15 @@ function RangeFooter({
 const LEADING_LABEL = 'le plus choisi';
 
 /**
+ * Au doigt, l'appui qui tient ce temps-là devient un appui long. Il passe
+ * avant celui d'Android (400 à 500 ms), qui ouvrirait le menu contextuel.
+ */
+const HOLD_MS = 350;
+
+/** Le tremblement permis au doigt pendant l'appui : au-delà, il défile. */
+const HOLD_SLOP_PX = 10;
+
+/**
  * Le plan de chaque colonne, décroissant de gauche à droite : la pastille d'un
  * jour déborde sur la case de droite et doit passer au-dessus d'elle, ce que
  * l'ordre du document, qui peint la case de droite en dernier, ne permet pas.
@@ -1248,6 +1357,8 @@ function dayClass(state: {
   locked?: boolean;
   /** Sur le point d'être retiré : le contour pointillé. */
   withdrawn?: boolean;
+  /** Sous un appui long au doigt, avant tout glissé : un anneau dit que le geste est pris. */
+  held?: boolean;
 }): string {
   const parts = [
     'relative grid aspect-square w-full max-w-11 place-items-center rounded-[10px] text-sm tabular-nums outline-none transition-[background-color,color,box-shadow] duration-150 motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-[var(--color-ember)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-ink-soft)]',
@@ -1309,28 +1420,45 @@ function dayClass(state: {
   if (state.today && state.tone === null) {
     parts.push('underline decoration-[var(--color-ember)] decoration-2 underline-offset-4');
   }
-  if (state.previewed) parts.push('ring-1 ring-[var(--color-incandescent)]');
+  if (state.held) parts.push('ring-2 ring-[var(--color-incandescent)]');
+  else if (state.previewed) parts.push('ring-1 ring-[var(--color-incandescent)]');
   return parts.join(' ');
 }
 
 /**
- * Les votants d'un jour, au survol et au focus clavier (FR-021).
+ * Les votants d'un jour, au survol, au focus clavier et sur un appui long au
+ * doigt (FR-021).
  *
  * Toujours dans le document - le bouton du jour le désigne par
  * `aria-describedby`, un lecteur d'écran le lit donc sans survol -, et
- * affiché seulement au survol ou au focus : `display: none` au repos, pour
- * qu'une bulle cachée n'élargisse jamais la page sur un téléphone. Elle est
+ * affichée seulement à la demande : `display: none` au repos, pour qu'une
+ * bulle cachée n'élargisse jamais la page sur un téléphone. Le focus ne
+ * l'ouvre qu'au clavier (`:focus-visible`) : sur Android, une tape donne le
+ * focus au bouton, et chaque jour basculé ouvrirait sa bulle. Elle est
  * calée à gauche sur les premières colonnes et à droite sur les dernières,
  * pour ne pas déborder de l'écran.
  */
-function VotersTooltip({ id, day, badge, column }: { id: string; day: Day; badge: DayBadge; column: number }) {
+function VotersTooltip({
+  id,
+  day,
+  badge,
+  column,
+  open,
+}: {
+  id: string;
+  day: Day;
+  badge: DayBadge;
+  column: number;
+  /** Ouverte par un appui long au doigt. */
+  open: boolean;
+}) {
   const { shown, others } = votersSummary(badge.voters);
   const align = column <= 1 ? 'left-0' : column >= 5 ? 'right-0' : 'left-1/2 -translate-x-1/2';
   return (
     <div
       id={id}
       role="tooltip"
-      className={`pointer-events-none absolute bottom-full z-30 mb-1.5 hidden w-max max-w-[15rem] rounded-[10px] border border-[var(--color-rule-strong)] bg-[var(--color-ink-raised)] p-3 text-left text-xs shadow-[0_12px_32px_-12px_rgb(0_0_0/0.45)] group-focus-within:block group-hover:block ${align}`}
+      className={`pointer-events-none absolute bottom-full z-30 mb-1.5 w-max max-w-[15rem] rounded-[10px] border border-[var(--color-rule-strong)] bg-[var(--color-ink-raised)] p-3 text-left text-xs shadow-[0_12px_32px_-12px_rgb(0_0_0/0.45)] ${open ? 'block' : 'hidden group-hover:block peer-focus-visible:block'} ${align}`}
     >
       <p className="mb-1.5 font-semibold text-[var(--color-text)]">
         {shortDay(day)} · {voteCountLabel(badge.count)}
