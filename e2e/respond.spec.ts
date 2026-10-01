@@ -71,6 +71,40 @@ test('répondre sans compte, retrouver, modifier puis retirer sa réponse', asyn
   expect(await db.response.count()).toBe(0);
 });
 
+test('une tape au doigt choisit le jour même quand le clic arrive après coup, comme sur iPhone', async ({ page }) => {
+  const publicId = await createPoll();
+  await page.goto(`/s/${publicId}`);
+  // Un premier choix ordinaire : la page est hydratée.
+  await dayButton(page, dayFromToday(5)).click();
+  await expect(dayButton(page, dayFromToday(5))).toHaveAttribute('data-mark', 'fill');
+
+  // Safari sur iPhone envoie le clic d'une tape bien après le relâcher, une
+  // fois la tape reconnue, et sur le bouton malgré la capture du pointeur.
+  await dayButton(page, dayFromToday(3)).evaluate(async (button) => {
+    const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    const { left, top, width, height } = button.getBoundingClientRect();
+    const init = {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      pointerId: 1,
+      pointerType: 'touch',
+      isPrimary: true,
+      button: 0,
+      clientX: left + width / 2,
+      clientY: top + height / 2,
+    };
+    button.dispatchEvent(new PointerEvent('pointerdown', init));
+    await pause(20);
+    button.dispatchEvent(new PointerEvent('pointerup', { ...init, buttons: 0 }));
+    await pause(100);
+    button.dispatchEvent(new MouseEvent('click', { ...init, detail: 1 }));
+  });
+
+  await expect(dayButton(page, dayFromToday(3))).toHaveAttribute('data-mark', 'fill');
+  await expect(page.locator(`input[name="days"][value="${dayFromToday(3)}"]`)).toHaveCount(1);
+});
+
 test('un sondage qui exige un compte n’offre pas de pseudo', async ({ page }) => {
   const publicId = await createPoll({ requireAccount: true });
   await page.goto(`/s/${publicId}`);
