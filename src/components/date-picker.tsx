@@ -512,6 +512,9 @@ export function DatePicker({
   }
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
+    // Un geste précédent resté sans clic (un glissé au doigt n'en produit
+    // pas) ne doit pas avaler celui de ce geste-ci.
+    pointerHandled.current = false;
     if (readOnly || !(multiple || isRange) || event.button !== 0) return;
     const day = dayAt(event.clientX, event.clientY);
     if (!day || (isRange && !isSelectable(day, rules))) return;
@@ -539,12 +542,11 @@ export function DatePicker({
   function onPointerUp() {
     if (!drag) return;
     // Le pointeur est capturé par la grille : le clic qui suit tombe sur
-    // elle, ou sur le bouton selon le navigateur. Le drapeau ne vit que le
-    // temps de ce clic éventuel.
+    // elle, ou sur le bouton selon le navigateur. Il n'arrive pas toujours
+    // dans la foulée : sur iPhone, Safari l'envoie après coup, une fois le
+    // toucher reconnu comme une tape. Le drapeau tient donc jusqu'à ce clic,
+    // que la grille éteint au passage.
     pointerHandled.current = true;
-    window.setTimeout(() => {
-      pointerHandled.current = false;
-    }, 0);
     if (drag.anchor === drag.over) choose(drag.anchor);
     else if (isRange) {
       // Glisser d'un jour à l'autre pose la plage d'un geste, sans passer
@@ -559,15 +561,14 @@ export function DatePicker({
   function onDayClick(day: Day) {
     // Le geste au pointeur a déjà été appliqué au relâcher ; le clic qui le
     // suit ne doit pas le défaire. Clavier et lecteur d'écran n'ont que lui.
-    if (pointerHandled.current) {
-      pointerHandled.current = false;
-      return;
-    }
+    if (pointerHandled.current) return;
     choose(day);
     setFocusDay(day);
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLButtonElement>, day: Day) {
+    // Entrée ou Espace font un clic : il vient du clavier, pas d'un geste.
+    pointerHandled.current = false;
     const target = keyTarget(day, event.key, event.shiftKey);
     if (target === null) return;
     event.preventDefault();
@@ -918,6 +919,10 @@ export function DatePicker({
           onPointerUp={onPointerUp}
           onPointerCancel={() => setDrag(null)}
           onPointerLeave={isRange ? () => setHover(null) : undefined}
+          // Le bouton du jour a vu le clic avant elle : le geste est soldé.
+          onClick={() => {
+            pointerHandled.current = false;
+          }}
           className={`mt-2 flex flex-wrap justify-center gap-x-6 gap-y-4 ${groupable || isRange ? 'touch-none' : ''}`}
         >
           {panes.map(renderMonth)}
