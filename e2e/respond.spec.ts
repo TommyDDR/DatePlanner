@@ -1,6 +1,6 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Browser, type Page } from '@playwright/test';
 import { randomBytes } from 'node:crypto';
-import { dayButton, dayFromToday, db, resetDatabase, signUp } from './helpers';
+import { dayButton, dayCenter, dayFromToday, db, finger, resetDatabase, signUp } from './helpers';
 
 /**
  * US2 - Répondre à un sondage, avec ou sans compte (scénarios 1 à 8, et le
@@ -103,6 +103,55 @@ test('une tape au doigt choisit le jour même quand le clic arrive après coup, 
 
   await expect(dayButton(page, dayFromToday(3))).toHaveAttribute('data-mark', 'fill');
   await expect(page.locator(`input[name="days"][value="${dayFromToday(3)}"]`)).toHaveCount(1);
+});
+
+/** Un téléphone, la page du sondage ouverte et hydratée : une tape a choisi le dernier jour. */
+async function openOnPhone(browser: Browser, publicId: string, last: string) {
+  const phone = await browser.newContext({ viewport: { width: 375, height: 740 }, hasTouch: true, isMobile: true });
+  const page = await phone.newPage();
+  await page.goto(`/s/${publicId}`);
+  await dayButton(page, last).tap();
+  await expect(dayButton(page, last)).toHaveAttribute('data-mark', 'fill');
+  // Le calendrier au milieu de l'écran : le doigt a de la place des deux côtés.
+  await dayButton(page, dayFromToday(3)).evaluate((button) => button.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  return { phone, page, scrollY: () => page.evaluate(() => window.scrollY) };
+}
+
+test('au doigt, un geste qui part du calendrier fait défiler la page sans rien choisir', async ({ browser }) => {
+  const publicId = await createPoll({ days: [dayFromToday(3), dayFromToday(4), dayFromToday(5)] });
+  const { phone, page, scrollY } = await openOnPhone(browser, publicId, dayFromToday(5));
+  const before = await scrollY();
+
+  const from = await dayCenter(page, dayFromToday(3));
+  const touch = await finger(page);
+  await touch.down(from.x, from.y);
+  await touch.move(from.x, from.y - 200);
+  await touch.up();
+
+  await expect.poll(scrollY).toBeGreaterThan(before + 100);
+  await expect(dayButton(page, dayFromToday(3))).not.toHaveAttribute('data-mark');
+  await expect(page.locator('input[name="days"]')).toHaveCount(1);
+  await phone.close();
+});
+
+test('au doigt, un appui long puis un glissé marque la plage, sans faire défiler la page', async ({ browser }) => {
+  const publicId = await createPoll({ days: [dayFromToday(3), dayFromToday(4), dayFromToday(5), dayFromToday(6)] });
+  const { phone, page, scrollY } = await openOnPhone(browser, publicId, dayFromToday(6));
+  const before = await scrollY();
+
+  const from = await dayCenter(page, dayFromToday(3));
+  const to = await dayCenter(page, dayFromToday(5));
+  const touch = await finger(page);
+  await touch.down(from.x, from.y);
+  await page.waitForTimeout(600);
+  await touch.move(to.x, to.y);
+  await touch.up();
+
+  for (const offset of [3, 4, 5]) {
+    await expect(page.locator(`input[name="days"][value="${dayFromToday(offset)}"]`)).toHaveCount(1);
+  }
+  expect(await scrollY()).toBe(before);
+  await phone.close();
 });
 
 test('un sondage qui exige un compte n’offre pas de pseudo', async ({ page }) => {

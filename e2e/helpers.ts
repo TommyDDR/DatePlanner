@@ -66,3 +66,39 @@ export async function signInAs(context: BrowserContext, userId: string, baseURL:
   });
   await context.addCookies([{ name: 'dp_session', value: token, url: baseURL }]);
 }
+
+/**
+ * Un doigt sur l'écran, par le protocole de Chromium : de vrais événements
+ * tactiles, que le navigateur fait défiler s'il le décide - `touchscreen` de
+ * Playwright ne sait que taper. Le contexte doit avoir `hasTouch`.
+ */
+export async function finger(page: Page) {
+  const cdp = await page.context().newCDPSession(page);
+  let at = { x: 0, y: 0 };
+  const send = (type: 'touchStart' | 'touchMove' | 'touchEnd', touchPoints: { x: number; y: number }[]) =>
+    cdp.send('Input.dispatchTouchEvent', { type, touchPoints });
+  return {
+    async down(x: number, y: number) {
+      at = { x, y };
+      await send('touchStart', [at]);
+    },
+    /** Un déplacement par petits pas, comme un doigt, pas d'un saut. */
+    async move(x: number, y: number, steps = 10) {
+      const from = at;
+      for (let step = 1; step <= steps; step += 1) {
+        at = { x: from.x + ((x - from.x) * step) / steps, y: from.y + ((y - from.y) * step) / steps };
+        await send('touchMove', [at]);
+        await page.waitForTimeout(16);
+      }
+    },
+    async up() {
+      await send('touchEnd', []);
+    },
+  };
+}
+
+/** Le centre d'un jour du calendrier, à l'écran. */
+export async function dayCenter(page: Page, day: string): Promise<{ x: number; y: number }> {
+  const box = (await dayButton(page, day).boundingBox())!;
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
