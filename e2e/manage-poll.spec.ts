@@ -56,7 +56,7 @@ test('le créateur gère son sondage de bout en bout', async ({ page }) => {
   // Scénarios 6 et 7, sur le seul calendrier : un jour voté est gris et ne
   // bouge pas ; un jour orangé se retire, un jour libre s'ajoute, et les deux
   // partent ensemble.
-  const panelDay = (day: string) => panel(page).locator(`[data-day="${day}"]`);
+  const panelDay = (day: string) => panel(page).getByRole('grid', { name: /^Jours proposés,/ }).locator(`[data-day="${day}"]`);
   await expect(panel(page).getByRole('button', { name: /Retirer/ })).toHaveCount(0);
   await expect(panelDay(dayFromToday(3))).toHaveAttribute('data-locked', '');
   await expect(panelDay(dayFromToday(3))).toHaveAttribute('aria-disabled', 'true');
@@ -74,7 +74,20 @@ test('le créateur gère son sondage de bout en bout', async ({ page }) => {
   await expect(panelDay(dayFromToday(4))).not.toHaveAttribute('data-mark');
   await expect(panelDay(dayFromToday(4))).not.toHaveAttribute('data-withdrawn');
   await expect(panelDay(dayFromToday(6))).toHaveAttribute('data-mark', 'fill');
-  await expect(panel(page).getByLabel('Date retenue').locator('option')).toHaveCount(3);
+  // La date retenue se choisit au calendrier, parmi les seuls jours proposés ;
+  // le plus voté se prend aussi d'une touche.
+  const retainedDay = (day: string) =>
+    panel(page).getByRole('grid', { name: /^Date retenue,/ }).locator(`[data-day="${day}"]`);
+  await expect(retainedDay(dayFromToday(4))).toHaveAttribute('aria-disabled', 'true');
+  await expect(retainedDay(dayFromToday(6))).not.toHaveAttribute('aria-disabled');
+  const favorite = panel(page).getByRole('button', { name: /, 1 vote$/ });
+  await expect(favorite).toHaveAttribute('aria-pressed', 'false');
+  await favorite.click();
+  await expect(favorite).toHaveAttribute('aria-pressed', 'true');
+  await expect(retainedDay(dayFromToday(3))).toHaveAttribute('data-match', '');
+  await panel(page).getByRole('button', { name: 'Sans date retenue' }).click();
+  await expect(panel(page).getByText('Aucune date retenue')).toBeVisible();
+  await expect(retainedDay(dayFromToday(3))).not.toHaveAttribute('data-match');
 
   // Scénario 9 : répondants connectés uniquement.
   await panel(page).getByLabel('Répondants connectés uniquement').check();
@@ -87,7 +100,14 @@ test('le créateur gère son sondage de bout en bout', async ({ page }) => {
   await expect(panel(page).getByText('Aucune réponse pour l’instant.')).toBeVisible();
 
   // Scénario 4 : clore en désignant la date retenue.
-  await panel(page).getByLabel('Date retenue').selectOption(dayFromToday(6));
+  // Un jour repris est rendu.
+  await retainedDay(dayFromToday(6)).click();
+  await expect(retainedDay(dayFromToday(6))).toHaveAttribute('data-match', '');
+  await retainedDay(dayFromToday(6)).click();
+  await expect(retainedDay(dayFromToday(6))).not.toHaveAttribute('data-match');
+  await expect(panel(page).getByText('Aucune date retenue')).toBeVisible();
+  await retainedDay(dayFromToday(6)).click();
+  await expect(retainedDay(dayFromToday(6))).toHaveAttribute('data-match', '');
   await panel(page).getByRole('button', { name: 'Clore le sondage' }).click();
   const banner = page.getByTestId('bandeau-clos');
   await expect(banner).toBeVisible();
@@ -118,7 +138,7 @@ test('un vote arrivé pendant qu’on prépare un retrait verrouille le jour, et
   const [kept, withdrawn] = [dayFromToday(3), dayFromToday(4)];
   const publicId = await seedPoll(email, 'Pique-nique', [kept, withdrawn]);
   await page.goto(`/s/${publicId}`);
-  const panelDay = (day: string) => panel(page).locator(`[data-day="${day}"]`);
+  const panelDay = (day: string) => panel(page).getByRole('grid', { name: /^Jours proposés,/ }).locator(`[data-day="${day}"]`);
   await panelDay(withdrawn).click();
   await expect(panelDay(withdrawn)).toHaveAttribute('data-withdrawn', '');
   // Laisse au flux le temps de s'ouvrir (première compilation de la route).

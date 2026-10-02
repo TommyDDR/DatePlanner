@@ -21,6 +21,7 @@ import {
   isoWeek,
   isSelectable,
   keyTarget,
+  pickDay,
   shiftMonth,
   weekdayColumn,
   weekdayIndex,
@@ -87,6 +88,14 @@ describe('Un clic sur un jour', () => {
 
   it('ne marque jamais un jour interdit', () => {
     expect(cycleDay({}, '2026-09-24', TWO, rules)).toEqual({});
+  });
+
+  it('en choix simple, remplace le jour pris, et le rend quand on le reprend', () => {
+    const marks = pickDay({}, '2026-09-22', rules);
+    expect(marks).toEqual({ '2026-09-22': 1 });
+    expect(pickDay(marks, '2026-09-23', rules)).toEqual({ '2026-09-23': 1 });
+    expect(pickDay(marks, '2026-09-22', rules)).toEqual({});
+    expect(pickDay(marks, '2026-09-24', rules)).toEqual(marks);
   });
 });
 

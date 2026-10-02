@@ -20,6 +20,7 @@ import {
   lastDayOf,
   monthOf,
   monthRange,
+  pickDay,
   rangeClick,
   rangeShown,
   shiftMonth,
@@ -47,7 +48,8 @@ export type DayBadge = { count: number; voters: readonly Voter[] };
  * le sombre sans rien déclarer -, et ce qu'il décide vit dans
  * `lib/date-picker.ts`, hors du navigateur.
  *
- * En choix SIMPLE, un clic prend le jour. En choix MULTIPLE, chaque jour
+ * En choix SIMPLE, un clic prend le jour, et un second clic sur lui le rend.
+ * En choix MULTIPLE, chaque jour
  * parcourt un CYCLE d'états - neutre, puis chacun des `states`, puis neutre :
  * un seul état pour une sélection ordinaire, deux pour l'atelier (proposé,
  * interdit). Un clic avance le jour ; un glissé avance toute la plage depuis
@@ -228,7 +230,7 @@ export type DatePickerProps = {
   withdrawn?: readonly Day[];
   /** Ce que désignent les jours à retirer. */
   withdrawnLabel?: string;
-  /** Remplace le décompte du bas en choix multiple, « Tout effacer » compris. */
+  /** Remplace le décompte du bas en choix simple ou multiple, « Tout effacer » compris. */
   summary?: React.ReactNode;
   /** Le nom de la grille pour un lecteur d'écran. */
   label: string;
@@ -501,7 +503,7 @@ export function DatePicker({
       setHover(null);
       return;
     }
-    commit(multiple ? cycleDay(marks, day, count, rules) : { [day]: 1 });
+    commit(multiple ? cycleDay(marks, day, count, rules) : pickDay(marks, day, rules));
   }
 
   /** « Tout le mois », « Toute l'année » : la plage d'un geste, puis retour aux jours. */
@@ -1128,10 +1130,11 @@ export function DatePicker({
               votes du jour
             </span>
           ) : null
-        ) : multiple && summary !== undefined ? (
+        ) : summary !== undefined ? (
           summary
         ) : (
-        <p aria-live="polite" className="text-xs text-[var(--color-text-muted)]">
+        // Toujours sous la légende, même court : « Aucun jour marqué » ne se colle pas à ses pastilles.
+        <p aria-live="polite" className="basis-full text-xs text-[var(--color-text-muted)]">
           {multiple ? (
             total === 0 ? (
               'Aucun jour marqué'
