@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { IDENTITY } from '@/config/identity';
+import { IDENTITY, readEditor } from '@/config/identity';
 import { DEVICE, SESSION } from '@/config/limits';
 import { PROXY_RETENTION, RETENTION } from '@/config/retention';
 import { LegalPage, LegalSection } from '@/components/legal-page';
@@ -31,6 +31,7 @@ export default function PrivacyPage() {
   const googleSignin = readGoogleOAuth() !== null;
   const mailer = emailProcessor();
   const transfers = mailer?.outsideEu || googleSignin;
+  const editor = readEditor();
   const contact = (
     <a className="text-[var(--color-ember)] underline underline-offset-4" href={`mailto:${IDENTITY.email}`}>
       {IDENTITY.email}
@@ -41,7 +42,7 @@ export default function PrivacyPage() {
     <LegalPage label="Confidentialité" title="Politique de confidentialité">
       <LegalSection title="Responsable du traitement">
         <p>
-          {IDENTITY.legal.entityName} - {IDENTITY.legal.address}. Pour toute question sur vos données : {contact}.
+          {editor.name} - {editor.address}. Pour toute question sur vos données : {contact}.
         </p>
       </LegalSection>
 
@@ -98,7 +99,7 @@ export default function PrivacyPage() {
       <LegalSection title="Destinataires">
         <p>
           Les données ne sont transmises à aucun tiers commercial. Le service est auto-hébergé, sur des serveurs
-          exploités par l’éditeur ({IDENTITY.legal.hostingProvider}).
+          exploités par l’éditeur ({editor.name}, {editor.address}).
         </p>
         <p className="mt-3">
           Le créateur d’un sondage peut recevoir par email un résumé des nouvelles réponses : pseudos ou noms

@@ -1,10 +1,14 @@
 import { networkInterfaces } from 'node:os';
 import type { NextConfig } from 'next';
-import { SITE_URL } from './src/config/identity';
+import { SITE_URL, readEditor } from './src/config/identity';
 import { contentSecurityPolicy } from './src/lib/csp';
 import { httpsRedirects } from './src/lib/https-redirect';
 
 const isProduction = process.env.NODE_ENV === 'production';
+
+// En production, l'identité de l'éditeur manquante fait échouer le build ici,
+// plutôt que de laisser servir des mentions légales vides.
+readEditor();
 
 /**
  * La politique des routes de `/api`, SANS nonce.

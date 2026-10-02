@@ -47,7 +47,7 @@ poussée, contre un PostgreSQL 17 en service.
 src/
   proxy.ts                 nonce et CSP par requête, 404 des liens mal formés, cookie de session prolongé
   config/                  valeurs déclarées UNE fois
-    identity.ts            nom, domaine, éditeur et hébergeur
+    identity.ts            nom, domaine ; éditeur et hébergeur lus dans .env
     limits.ts              seaux anti-flood, session, appareil, flux, bornes d'un sondage, résumé, file
     retention.ts           durées de conservation (lues par la maintenance ET la politique)
   lib/                     modules PURS, sans base ni horloge implicite
