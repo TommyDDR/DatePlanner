@@ -48,7 +48,8 @@ chaque rendu qui en montre une nouvelle : la bordure « du nouveau » disparaît
 modifier titre et description ; changer les jours sur le seul calendrier - jour sans vote
 orangé et retirable, jour voté gris et figé, jour libre ajouté d'un clic, le tout enregistré
 d'un envoi ; un retrait devancé par un vote tombe, avec un avertissement (décision 031) ; options compte exigé et résumé par email ; clore avec ou sans date
-retenue, changer la date retenue, rouvrir ; supprimer une réponse (confirmation) ; supprimer le
+retenue, changer la date retenue - choisie sur un calendrier parmi les seuls jours proposés,
+pastilles de votes en vue, les trois plus votés aussi d'une touche (décision 038) -, rouvrir ; supprimer une réponse (confirmation) ; supprimer le
 sondage (confirmation) ; copier le lien.
 
 **Refus** : `publicId` mal formé, inconnu ou supprimé ⇒ introuvable.

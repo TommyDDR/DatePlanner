@@ -6,9 +6,11 @@ import { CopyLink } from '@/components/copy-link';
 import { DatePicker, type DayBadge, type MarkState } from '@/components/date-picker';
 import { FieldError, FormAlert, SubmitButton } from '@/components/form-parts';
 import { POLL_LIMITS } from '@/config/limits';
+import { byPopularity, voteCountLabel } from '@/lib/availability';
+import { addDays, monthsToShow } from '@/lib/date-picker';
 import { draftChanges, draftFromMarks, draftMarks, EMPTY_DRAFT, lockedDays, type DaysDraft, type SavedDays } from '@/lib/days-draft';
 import { fieldError, type FormState } from '@/lib/form-state';
-import { formatLongDay } from '@/lib/paris-day';
+import { formatLongDay, formatShortDay } from '@/lib/paris-day';
 import {
   changePollDaysAction,
   closePollAction,
@@ -178,20 +180,124 @@ export function OwnerPanel(props: Props) {
   );
 }
 
-function RetainedDaySelect({ days, value, name = 'retainedDay' }: { days: string[]; value: string | null; name?: string }) {
+/** Les jours les plus votés offerts d'une touche, au-dessus du calendrier. */
+const FAVORITES_SHOWN = 3;
+
+/**
+ * La date retenue, choisie sur un calendrier plutôt que dans une liste : un
+ * sondage peut proposer toute une année, et la liste déroulante devenait
+ * interminable. Seuls les jours proposés se choisissent, pastilles de votes
+ * en vue ; les plus votés se prennent aussi d'une touche. Le jour choisi part
+ * dans le champ caché `retainedDay` ; sans date retenue, le champ ne part pas.
+ */
+function RetainedDayPicker({
+  days,
+  badges,
+  today,
+  value,
+}: Pick<Props, 'days' | 'badges' | 'today'> & { value: string | null }) {
+  const [chosen, setChosen] = useState<string | null>(value);
+  // Un raccourci remonte le calendrier, qui s'ouvre alors sur le mois du jour pris.
+  const [jumps, setJumps] = useState(0);
+  const min = days[0] ?? today;
+  const max = days[days.length - 1] ?? today;
+  const disabled = useMemo(() => {
+    const proposed = new Set(days);
+    const out: string[] = [];
+    for (let day = min; day <= max; day = addDays(day, 1)) if (!proposed.has(day)) out.push(day);
+    return out;
+  }, [days, min, max]);
+  const favorites = useMemo(
+    () =>
+      byPopularity(Object.entries(badges).map(([day, badge]) => ({ day, count: badge.count })))
+        .filter(({ count }) => count > 0)
+        .slice(0, FAVORITES_SHOWN),
+    [badges],
+  );
+  const markedMonths = useMemo(() => [...new Set(days.map((day) => day.slice(0, 7)))], [days]);
+
   return (
-    <select name={name} defaultValue={value ?? ''} className="field max-w-sm" aria-label="Date retenue">
-      <option value="">Sans date retenue</option>
-      {days.map((day) => (
-        <option key={day} value={day}>
-          {formatLongDay(day)}
-        </option>
-      ))}
-    </select>
+    <fieldset className="flex flex-col gap-3">
+      <legend className="mb-1 text-sm font-medium">Date retenue</legend>
+      {favorites.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-[var(--color-text-muted)]">Les plus choisis :</span>
+          {favorites.map(({ day, count }) => (
+            <button
+              key={day}
+              type="button"
+              aria-pressed={chosen === day}
+              aria-label={`${formatLongDay(day)}, ${voteCountLabel(count)}`}
+              onClick={() => {
+                setChosen(day);
+                setJumps((n) => n + 1);
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors ${
+                chosen === day
+                  ? 'bg-[var(--color-jade)] font-semibold text-[var(--color-on-jade)]'
+                  : 'border border-[var(--color-rule-strong)] hover:border-[var(--color-ember)] hover:text-[var(--color-ember)]'
+              }`}
+            >
+              <span className="first-letter:uppercase">{formatShortDay(day)}</span>
+              <span className="font-mono text-xs">{count}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+      <DatePicker
+        key={jumps}
+        mode="single"
+        months={monthsToShow(days)}
+        name="retainedDay"
+        label="Date retenue"
+        today={today}
+        min={min}
+        max={max}
+        disabled={disabled}
+        highlighted={days}
+        highlightLabel="jour proposé"
+        matchLabel="date retenue"
+        disabledLabel="non proposé"
+        value={chosen ? { [chosen]: 1 } : {}}
+        onChange={(marks) => setChosen(Object.keys(marks)[0] ?? null)}
+        badges={badges}
+        markedMonths={markedMonths}
+        initialDay={favorites[0]?.day ?? days.find((day) => day >= today) ?? null}
+        summary={
+          <p aria-live="polite" className="text-xs text-[var(--color-text-muted)]">
+            {chosen ? (
+              <>
+                Retenue : <span className="font-medium text-[var(--color-text)]">{formatLongDay(chosen)}</span>
+                {' · '}
+                <button
+                  type="button"
+                  onClick={() => setChosen(null)}
+                  className="text-[var(--color-ember)] underline-offset-2 hover:underline"
+                >
+                  Sans date retenue
+                </button>
+              </>
+            ) : (
+              'Aucune date retenue'
+            )}
+          </p>
+        }
+      />
+    </fieldset>
   );
 }
 
-function ClosingSection({ publicId, status, retainedDay, days }: Props) {
+function ClosingSection({ publicId, status, retainedDay, days, badges, today }: Props) {
+  // Les jours ou la date enregistrée changent : le choix en cours repart d'eux.
+  const picker = (
+    <RetainedDayPicker
+      key={`${days.join(',')}|${retainedDay ?? ''}`}
+      days={days}
+      badges={badges}
+      today={today}
+      value={retainedDay}
+    />
+  );
   const hidden = <input type="hidden" name="publicId" value={publicId} />;
   if (status === 'OPEN') {
     return (
@@ -204,7 +310,7 @@ function ClosingSection({ publicId, status, retainedDay, days }: Props) {
           {(state) => (
             <>
               {hidden}
-              <RetainedDaySelect days={days} value={null} />
+              {picker}
               <FieldError id="clore-erreur" message={fieldError(state, 'retainedDay')} />
               <div>
                 <SubmitButton>Clore le sondage</SubmitButton>
@@ -222,7 +328,7 @@ function ClosingSection({ publicId, status, retainedDay, days }: Props) {
         {() => (
           <>
             {hidden}
-            <RetainedDaySelect days={days} value={retainedDay} />
+            {picker}
             <div>
               <SubmitButton className="btn-ghost">Enregistrer la date retenue</SubmitButton>
             </div>

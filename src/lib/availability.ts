@@ -43,7 +43,7 @@ export function buildAvailability(rows: readonly VoteRow[]): DayAvailability[] {
  * À égalité, le plus proche d'abord : c'est celui qu'on aura à organiser en
  * premier.
  */
-export function byPopularity(availability: readonly DayAvailability[]): DayAvailability[] {
+export function byPopularity<T extends Pick<DayAvailability, 'day' | 'count'>>(availability: readonly T[]): T[] {
   return [...availability].sort((a, b) => b.count - a.count || (a.day < b.day ? -1 : a.day > b.day ? 1 : 0));
 }
 

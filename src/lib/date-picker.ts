@@ -144,6 +144,12 @@ export function cycleDay(marks: Marks, day: Day, count: number, rules: DayRules)
   return setAll(marks, [day], nextMark(marks[day] ?? 0, count));
 }
 
+/** Un clic en choix simple : le jour pris remplace le précédent ; repris, il est rendu. */
+export function pickDay(marks: Marks, day: Day, rules: DayRules): Record<Day, number> {
+  if (!isSelectable(day, rules)) return { ...marks };
+  return marks[day] ? {} : { [day]: 1 };
+}
+
 /** Un glissé de `anchor` à `over` : l'état qui suit celui du premier jour, sur toute la plage. */
 export function cycleRange(
   marks: Marks,
