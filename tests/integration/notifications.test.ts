@@ -92,6 +92,26 @@ describe('résumé au créateur', () => {
     expect(await prisma.emailOutbox.count()).toBe(0);
   });
 
+  it('ne programme rien quand le créateur répond lui-même', async () => {
+    const owner = await createUser();
+    const poll = await createPoll({ owner });
+    testCookies.set(SESSION.cookieName, await createSessionFor(owner.id));
+    await submitResponseAction(null, form({ publicId: poll.publicId, days: [dayFromToday(3)] }));
+    expect(await prisma.response.count({ where: { pollId: poll.id, userId: owner.id } })).toBe(1);
+    expect(await prisma.emailOutbox.count()).toBe(0);
+  });
+
+  it('ne cite pas la réponse du créateur dans le résumé déclenché par un autre', async () => {
+    const owner = await createUser({ displayName: 'Proprio' });
+    const poll = await createPoll({ owner });
+    await createResponse({ poll, user: owner, days: [dayFromToday(3)] });
+    await answer(poll.publicId, 'Léa');
+    const email = await composeEmail((await pendingDigest(poll.id))!);
+    expect(email?.subject).toBe(`1 nouvelle réponse à « ${poll.title} »`);
+    expect(email?.text).toContain('Léa');
+    expect(email?.text).not.toContain('Proprio');
+  });
+
   it('ne programme rien pour une simple mise à jour', async () => {
     const poll = await createPoll();
     await answer(poll.publicId, 'Léa');

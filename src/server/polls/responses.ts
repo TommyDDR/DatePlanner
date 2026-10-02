@@ -56,8 +56,11 @@ export async function submitResponse(
       const { result, digest } = await prisma.$transaction(async (tx) => {
         const written = await writeResponse(tx, publicId, respondent, days, pseudonym, today);
         // Une NOUVELLE réponse programme le résumé du créateur (FR-041), dans
-        // la même transaction : il n'existe que si la réponse existe.
-        const scheduled = written.ok && written.data.created ? await scheduleOwnerDigest(tx, written.data.pollId) : null;
+        // la même transaction : il n'existe que si la réponse existe. Sa
+        // propre réponse ne le programme pas.
+        const userId = respondent.kind === 'user' ? respondent.userId : null;
+        const scheduled =
+          written.ok && written.data.created ? await scheduleOwnerDigest(tx, written.data.pollId, userId) : null;
         return { result: written, digest: scheduled };
       });
       if (digest) deliverSoon(digest.id, digest.sendAfter);
