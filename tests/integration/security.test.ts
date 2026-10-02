@@ -14,7 +14,7 @@ import { composeEmail } from '@/server/notifications/compose';
 import '@/server/notifications/composers';
 import { getPollSynthesis } from '@/server/polls/read';
 import { resetDatabase } from '../helpers/db';
-import { createPoll, createResponse, createUser, dayFromToday } from '../helpers/factories';
+import { createPoll, createResponse, createUser, dayFromToday, retainDays } from '../helpers/factories';
 
 /**
  * Sécurité des pages et des emails (FR-035, FR-037, constitution I).
@@ -137,7 +137,7 @@ describe('titres et pseudos contenant du balisage', () => {
   it('s’affichent comme du texte dans la liste des disponibilités', async () => {
     const poll = await hostilePoll();
     const html = renderToStaticMarkup(
-      createElement(AvailabilityList, { availability: await getPollSynthesis(poll.id), retainedDay: null }),
+      createElement(AvailabilityList, { availability: await getPollSynthesis(poll.id), retainedDays: [] }),
     );
     expectInert(html);
     expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
@@ -152,12 +152,12 @@ describe('titres et pseudos contenant du balisage', () => {
   it('sont échappés dans la branche HTML de chaque email', async () => {
     const poll = await hostilePoll();
     const day = dayFromToday(3);
-    const retained = await prisma.pollDay.findFirstOrThrow({ where: { pollId: poll.id, day: new Date(`${day}T00:00:00.000Z`) } });
-    await prisma.poll.update({ where: { id: poll.id }, data: { status: 'CLOSED', retainedDayId: retained.id, ownerDigestCursor: new Date(0) } });
+    await prisma.poll.update({ where: { id: poll.id }, data: { status: 'CLOSED', ownerDigestCursor: new Date(0) } });
+    await retainDays(poll, [day]);
 
     for (const template of ['OWNER_DIGEST', 'RETAINED_DAY'] as const) {
       const entry = await prisma.emailOutbox.create({
-        data: { to: 'a@exemple.test', template, pollId: poll.id, payload: template === 'RETAINED_DAY' ? { day } : {} },
+        data: { to: 'a@exemple.test', template, pollId: poll.id, payload: template === 'RETAINED_DAY' ? { days: [day] } : {} },
       });
       const email = await composeEmail(entry);
       expect(email, template).not.toBeNull();

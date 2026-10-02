@@ -82,12 +82,17 @@ export default async function PollPage({ params, searchParams }: { params: Param
           className="flex flex-col gap-1 rounded-[var(--radius-card)] border border-[var(--color-rule-strong)] p-4 sm:flex-row sm:items-center sm:gap-4"
         >
           <p className="label-tech">Sondage clos</p>
-          {poll.retainedDay ? (
-            <p className="flex items-center gap-2">
-              Date retenue :
-              <span className="rounded-full bg-[var(--color-retained)] px-3 py-1 font-semibold text-[var(--color-on-retained)] first-letter:uppercase">
-                {formatLongDay(poll.retainedDay)}
-              </span>
+          {poll.retainedDays.length > 0 ? (
+            <p className="flex flex-wrap items-center gap-2">
+              {poll.retainedDays.length > 1 ? 'Dates retenues :' : 'Date retenue :'}
+              {poll.retainedDays.map((day) => (
+                <span
+                  key={day}
+                  className="rounded-full bg-[var(--color-retained)] px-3 py-1 font-semibold text-[var(--color-on-retained)] first-letter:uppercase"
+                >
+                  {formatLongDay(day)}
+                </span>
+              ))}
             </p>
           ) : (
             <p className="text-[var(--color-text-muted)]">Le créateur a arrêté les réponses.</p>
@@ -110,7 +115,7 @@ export default async function PollPage({ params, searchParams }: { params: Param
           existing={own}
           badges={badges}
           markedMonths={markedMonths}
-          retainedDay={poll.retainedDay}
+          retainedDays={poll.retainedDays}
         />
       </section>
 
@@ -118,7 +123,7 @@ export default async function PollPage({ params, searchParams }: { params: Param
         <h2 id="qui-est-disponible" className="text-lg font-semibold">
           Qui est disponible ?
         </h2>
-        <AvailabilityList availability={availability} retainedDay={poll.retainedDay} />
+        <AvailabilityList availability={availability} retainedDays={poll.retainedDays} />
       </section>
 
       {isOwner ? (
@@ -128,12 +133,13 @@ export default async function PollPage({ params, searchParams }: { params: Param
           title={poll.title}
           description={poll.description}
           status={poll.status}
-          retainedDay={poll.retainedDay}
+          retainedDays={poll.retainedDays}
           days={poll.days}
           badges={badges}
           responses={moderated.map(({ id, name, account }) => ({ id, name, account }))}
           requireAccount={poll.requireAccount}
           notifyOwner={poll.notifyOwner}
+          multipleRetainedDays={poll.multipleRetainedDays}
           today={today}
           showShare={!created}
         />

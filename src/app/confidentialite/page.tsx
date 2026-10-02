@@ -53,7 +53,7 @@ export default function PrivacyPage() {
             et, si vous vous connectez avec Google, l’identifiant de votre compte Google.
           </li>
           <li>
-            Sondages : titre, description, jours proposés, options choisies, date retenue, et le compte qui l’a créé.
+            Sondages : titre, description, jours proposés, options choisies, dates retenues, et le compte qui l’a créé.
           </li>
           <li>
             Réponses : votre compte ou le pseudo que vous choisissez, les jours que vous cochez et la date de la
@@ -83,7 +83,7 @@ export default function PrivacyPage() {
         <ul className="list-disc space-y-1.5 pl-5">
           <li>
             Fournir le service (comptes, sondages, réponses, emails de réinitialisation, résumés des nouvelles
-            réponses, annonce de la date retenue) : <em>exécution du service demandé</em>.
+            réponses, annonce des dates retenues) : <em>exécution du service demandé</em>.
           </li>
           <li>
             Assurer la sécurité du service (limitation des abus, verrouillage après des échecs de connexion,

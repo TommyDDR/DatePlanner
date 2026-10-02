@@ -119,6 +119,20 @@ export function PollForm({ today }: { today: string }) {
             </span>
           </span>
         </label>
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            name="multipleRetainedDays"
+            defaultChecked={state?.values?.multipleRetainedDays === 'on'}
+            className="mt-1 size-4 accent-[var(--color-ember)]"
+          />
+          <span>
+            Plusieurs dates retenues
+            <span className="block text-sm text-[var(--color-text-subtle)]">
+              À la clôture, vous pourrez retenir plusieurs jours, pour un événement sur plusieurs dates.
+            </span>
+          </span>
+        </label>
       </fieldset>
 
       <div>

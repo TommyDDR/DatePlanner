@@ -39,6 +39,10 @@
 - Q: Quand part le premier résumé des nouvelles réponses ? → A: 15 minutes après la première nouvelle réponse, puis au plus un toutes les 30 minutes.
 - Q: Que montre « Mes sondages » ? → A: Deux listes : les sondages créés et ceux d'autres comptes auxquels on a répondu connecté ; un sondage qui a changé depuis la dernière visite (réponse, modification du créateur) est signalé par une bordure orangée à gauche.
 
+### Session 2026-10-02
+
+- Q: Le créateur peut-il retenir plusieurs jours à la clôture ? → A: Oui, si le sondage le permet : option « Plusieurs dates retenues », désactivée par défaut, choisie à la création et modifiable ensuite ; toutes les dates retenues sont mises en avant et annoncées ensemble.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Créer un sondage et obtenir son lien de partage (Priority: P1)
@@ -249,13 +253,18 @@ figurent avec leur nombre de répondants ; en supprimer un : son lien répond
 13. **Given** un utilisateur connecté qui a répondu avec son compte au sondage
     d'un autre, **When** il ouvre « Mes sondages », **Then** il le voit dans
     la liste « Auxquels j'ai répondu », avec son titre, le nom de son
-    créateur, son nombre de répondants, son état et sa date retenue.
+    créateur, son nombre de répondants, son état et ses dates retenues.
 14. **Given** un sondage de la page « Mes sondages » d'un utilisateur, **When**
     quelqu'un d'autre y répond, modifie ou retire sa réponse, ou que le
     créateur en change le titre, la description, les jours, l'état ou la date
     retenue, **Then** le sondage porte une bordure orangée à gauche dans sa
     liste jusqu'à ce que l'utilisateur l'ouvre ; ses propres changements ne le
     font jamais.
+15. **Given** un sondage créé avec l'option « Plusieurs dates retenues »,
+    **When** son créateur le clôt en désignant plusieurs des jours proposés,
+    **Then** toutes ces dates sont mises en avant pour les porteurs du lien et
+    dans « Mes sondages », et les répondants connectés reçoivent un email qui
+    les annonce ensemble ; sans l'option, une seule date peut être retenue.
 
 ---
 
@@ -324,7 +333,7 @@ en sombre ; basculer en clair, recharger : il reste clair.
   votants visibles) mais n'accepte plus de réponse ; un jour proposé passé
   n'est plus sélectionnable par un nouveau répondant.
 - Sondage clos ouvert par un répondant : la page annonce la clôture (et la
-  date retenue s'il y en a une) ; le calendrier est en consultation seule, y
+  ou les dates retenues s'il y en a) ; le calendrier est en consultation seule, y
   compris pour qui avait déjà répondu.
 - Réponse envoyée juste après la clôture (page restée ouverte) : refusée, avec
   un message indiquant que le sondage vient d'être clos.
@@ -441,7 +450,7 @@ en sombre ; basculer en clair, recharger : il reste clair.
 
 - **FR-024**: Un utilisateur connecté DOIT pouvoir lister ses sondages avec
   leur titre, leur nombre de répondants, leur date de création, leur état
-  (ouvert ou clos) et, le cas échéant, leur date retenue. Une seconde liste
+  (ouvert ou clos) et, le cas échéant, leurs dates retenues. Une seconde liste
   DOIT montrer, avec les mêmes informations et le nom de leur créateur, les
   sondages d'autres comptes auxquels il a répondu avec son compte ; une
   réponse donnée sans compte n'y figure pas.
@@ -452,8 +461,9 @@ en sombre ; basculer en clair, recharger : il reste clair.
   sondage clos reste consultable (pastilles, votants) mais n'accepte plus
   aucune nouvelle réponse, modification ni retrait. En clôturant, ou tant que
   le sondage est clos, le créateur PEUT désigner une date retenue parmi les
-  jours proposés ; elle est mise en avant pour tous les porteurs du lien.
-  Rouvrir le sondage retire la date retenue.
+  jours proposés - ou plusieurs, si le sondage le permet (FR-045) ; elles sont
+  mises en avant pour tous les porteurs du lien. Rouvrir le sondage retire les
+  dates retenues.
 - **FR-027**: Le créateur DOIT pouvoir ajouter des jours proposés à tout
   moment, dans le respect de FR-010 et FR-011. Il NE DOIT pouvoir retirer
   qu'un jour ne portant aucun vote au moment du retrait ; un sondage garde
@@ -472,11 +482,15 @@ en sombre ; basculer en clair, recharger : il reste clair.
 - **FR-044**: Dans « Mes sondages », un sondage DOIT être signalé par une
   bordure orangée à gauche, annoncée « du nouveau » aux lecteurs d'écran, quand
   il a changé depuis que l'utilisateur l'a vu pour la dernière fois : réponse donnée, modifiée, retirée ou supprimée, titre, description,
-  jours, état ou date retenue changés. L'indication apparaît sans recharger
+  jours, état ou dates retenues changés. L'indication apparaît sans recharger
   « Mes sondages », et disparaît dès qu'il affiche la page du sondage, y
   compris par la mise à jour en direct. Les changements
-  qu'il fait lui-même, et ceux des options (compte exigé, résumés par email),
-  ne la déclenchent pas.
+  qu'il fait lui-même, et ceux des options (compte exigé, résumés par email,
+  plusieurs dates retenues), ne la déclenchent pas.
+- **FR-045**: Le créateur DOIT pouvoir, à la création comme plus tard,
+  permettre de retenir plusieurs dates à la clôture (désactivé par défaut).
+  Sans cette option, un sondage retient au plus une date ; elle ne se
+  désactive pas tant que plusieurs dates sont retenues.
 
 **Notifications par email**
 
@@ -488,10 +502,11 @@ en sombre ; basculer en clair, recharger : il reste clair.
   déclenche aucun email et n'y figure pas. Cette option
   du sondage est activée par défaut et désactivable par le créateur, depuis le
   sondage ou depuis un lien présent dans chaque email.
-- **FR-042**: Quand le créateur désigne ou change la date retenue, chaque
-  répondant connecté du sondage DOIT recevoir un email annonçant cette date,
-  avec le lien du sondage. Les répondants sans compte ne reçoivent rien (le
-  service ne connaît pas leur adresse).
+- **FR-042**: Quand le créateur désigne ou change les dates retenues, et
+  qu'il en reste au moins une, chaque répondant connecté du sondage DOIT
+  recevoir un email annonçant toutes les dates retenues, avec le lien du
+  sondage. Les répondants sans compte ne reçoivent rien (le service ne connaît
+  pas leur adresse).
 - **FR-043**: Un échec d'envoi d'email NE DOIT ni bloquer ni annuler l'action
   qui l'a déclenché ; l'envoi est retenté.
 
@@ -533,9 +548,11 @@ en sombre ; basculer en clair, recharger : il reste clair.
   identité Google éventuelle, date de création.
 - **Sondage**: titre, description facultative, créateur (un Utilisateur),
   identifiant public du lien de partage, date de création, état (ouvert ou
-  clos), date retenue facultative (un des jours proposés, seulement quand le
-  sondage est clos), exigence d'un compte pour répondre (oui ou non, non par
-  défaut), notification du créateur par email (oui ou non, oui par défaut),
+  clos), dates retenues facultatives (des jours proposés, seulement quand le
+  sondage est clos ; une au plus sans l'option suivante), plusieurs dates
+  retenues permises (oui ou non, non par défaut), exigence d'un compte pour
+  répondre (oui ou non, non par défaut), notification du créateur par email
+  (oui ou non, oui par défaut),
   version de son dernier changement visible et dernière version vue par son
   créateur.
 - **Jour proposé**: une date calendaire (sans heure) proposée par le créateur,

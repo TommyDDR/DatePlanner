@@ -27,7 +27,8 @@ type Props = {
   badges: Record<string, DayBadge>;
   /** Mois (`AAAA-MM`) qui portent des jours proposés. */
   markedMonths: string[];
-  retainedDay: string | null;
+  /** Les dates retenues, triées. */
+  retainedDays: string[];
 };
 
 /**
@@ -78,7 +79,7 @@ export function ResponseForm(props: Props) {
   return <AnswerForm {...props} key={existing ? `${existing.pseudonym}|${existing.days.join(',')}` : 'nouvelle'} />;
 }
 
-function ReadOnly({ pollDays, today, badges, markedMonths, retainedDay, children }: Props & { children: React.ReactNode }) {
+function ReadOnly({ pollDays, today, badges, markedMonths, retainedDays, children }: Props & { children: React.ReactNode }) {
   const firstUpcoming = pollDays.find((day) => day >= today) ?? pollDays[pollDays.length - 1] ?? today;
   return (
     <div className="flex flex-col gap-4">
@@ -92,9 +93,9 @@ function ReadOnly({ pollDays, today, badges, markedMonths, retainedDay, children
         highlighted={pollDays}
         highlightLabel="jour proposé"
         badges={badges}
-        retainedDay={retainedDay}
+        retainedDays={retainedDays}
         markedMonths={markedMonths}
-        initialDay={retainedDay ?? firstUpcoming}
+        initialDay={retainedDays[0] ?? firstUpcoming}
       />
     </div>
   );

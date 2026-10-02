@@ -1,15 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSION } from '@/config/limits';
 import { prisma } from '@/server/db/client';
-import { closePollAction, setRetainedDayAction, submitResponseAction, withdrawResponseAction } from '@/app/s/[publicId]/actions';
+import { closePollAction, setRetainedDaysAction, submitResponseAction, withdrawResponseAction } from '@/app/s/[publicId]/actions';
 import { disableOwnerDigestAction } from '@/app/notifications/resume/desactiver/actions';
 import { POST as oneClickUnsubscribe } from '@/app/api/notifications/resume/desactiver/route';
 import { signLink } from '@/lib/signed-link';
+import { formatLongDay } from '@/lib/paris-day';
 import { composeEmail } from '@/server/notifications/compose';
 import { deliver } from '@/server/notifications/outbox';
 import { setTestHeaders, testCookies } from '../setup';
 import { resetDatabase } from '../helpers/db';
-import { createPoll, createResponse, createSessionFor, createUser, dayFromToday } from '../helpers/factories';
+import { createPoll, createResponse, createSessionFor, createUser, dayFromToday, retainDays } from '../helpers/factories';
 
 /** Résumé au créateur et annonce de la date retenue (FR-041 à FR-043). */
 
@@ -179,7 +180,7 @@ describe('annonce de la date retenue', () => {
 
     testCookies.clear();
     testCookies.set(SESSION.cookieName, await createSessionFor(owner.id));
-    await closePollAction(null, form({ publicId: poll.publicId, retainedDay: dayFromToday(3) }));
+    await closePollAction(null, form({ publicId: poll.publicId, retainedDays: [dayFromToday(3)] }));
 
     const announcements = await prisma.emailOutbox.findMany({ where: { template: 'RETAINED_DAY' }, orderBy: { to: 'asc' } });
     expect(announcements.map((e) => e.to)).toEqual(['lea@example.test', 'noe@example.test']);
@@ -187,10 +188,40 @@ describe('annonce de la date retenue', () => {
     expect(email?.subject).toContain(`Date retenue pour « ${poll.title} »`);
 
     // Changer la date annonce la nouvelle ; la remettre à l'identique, non.
-    await setRetainedDayAction(null, form({ publicId: poll.publicId, retainedDay: dayFromToday(4) }));
+    await setRetainedDaysAction(null, form({ publicId: poll.publicId, retainedDays: [dayFromToday(4)] }));
     expect(await prisma.emailOutbox.count({ where: { template: 'RETAINED_DAY' } })).toBe(4);
-    await setRetainedDayAction(null, form({ publicId: poll.publicId, retainedDay: dayFromToday(4) }));
+    await setRetainedDaysAction(null, form({ publicId: poll.publicId, retainedDays: [dayFromToday(4)] }));
     expect(await prisma.emailOutbox.count({ where: { template: 'RETAINED_DAY' } })).toBe(4);
+  });
+
+  it('annonce toutes les dates retenues d’un sondage qui en retient plusieurs', async () => {
+    const owner = await createUser();
+    const poll = await createPoll({ owner, multipleRetainedDays: true });
+    await createResponse({ poll, user: await createUser({ email: 'lea@example.test' }), days: [dayFromToday(3)] });
+    testCookies.set(SESSION.cookieName, await createSessionFor(owner.id));
+    await closePollAction(null, form({ publicId: poll.publicId, retainedDays: [dayFromToday(5), dayFromToday(3)] }));
+
+    const announcement = await prisma.emailOutbox.findFirstOrThrow({ where: { template: 'RETAINED_DAY' } });
+    expect(announcement.payload).toEqual({ days: [dayFromToday(3), dayFromToday(5)] });
+    const email = await composeEmail(announcement);
+    expect(email?.subject).toBe(`2 dates retenues pour « ${poll.title} »`);
+    expect(email?.text).toContain(`Les dates retenues pour « ${poll.title} » sont :`);
+    expect(email?.text).toContain(`- le ${formatLongDay(dayFromToday(3))}\n- le ${formatLongDay(dayFromToday(5))}`);
+
+    // Une date en moins s'annonce aussi : la précédente annonce ne dit plus la vérité.
+    await setRetainedDaysAction(null, form({ publicId: poll.publicId, retainedDays: [dayFromToday(5)] }));
+    expect(await composeEmail(announcement)).toBeNull();
+    const latest = await prisma.emailOutbox.findFirstOrThrow({ where: { template: 'RETAINED_DAY' }, orderBy: { createdAt: 'desc' } });
+    expect((await composeEmail(latest))?.subject).toBe(`Date retenue pour « ${poll.title} » : ${formatLongDay(dayFromToday(5))}`);
+  });
+
+  it('compose encore une annonce mise en file avant les dates multiples', async () => {
+    const poll = await createPoll({ status: 'CLOSED' });
+    await retainDays(poll, [dayFromToday(4)]);
+    const entry = await prisma.emailOutbox.create({
+      data: { to: 'lea@example.test', template: 'RETAINED_DAY', pollId: poll.id, payload: { day: dayFromToday(4) } },
+    });
+    expect((await composeEmail(entry))?.subject).toContain(formatLongDay(dayFromToday(4)));
   });
 
   it('n’envoie pas une annonce devenue fausse : sondage rouvert entre-temps', async () => {
@@ -198,8 +229,9 @@ describe('annonce de la date retenue', () => {
     const poll = await createPoll({ owner });
     await createResponse({ poll, user: await createUser({ email: 'lea@example.test' }), days: [dayFromToday(3)] });
     testCookies.set(SESSION.cookieName, await createSessionFor(owner.id));
-    await closePollAction(null, form({ publicId: poll.publicId, retainedDay: dayFromToday(3) }));
-    await prisma.poll.update({ where: { id: poll.id }, data: { status: 'OPEN', retainedDayId: null } });
+    await closePollAction(null, form({ publicId: poll.publicId, retainedDays: [dayFromToday(3)] }));
+    await prisma.retainedDay.deleteMany();
+    await prisma.poll.update({ where: { id: poll.id }, data: { status: 'OPEN' } });
     const announcement = await prisma.emailOutbox.findFirstOrThrow({ where: { template: 'RETAINED_DAY' } });
     expect(await composeEmail(announcement)).toBeNull();
   });

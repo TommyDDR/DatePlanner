@@ -19,6 +19,7 @@ export type CreatePollInput = {
   days: readonly string[];
   requireAccount: boolean;
   notifyOwner: boolean;
+  multipleRetainedDays: boolean;
 };
 
 /** 128 bits aléatoires en base64url : 22 caractères, impossibles à deviner (FR-012). */
@@ -48,6 +49,7 @@ export async function createPoll(
           description: input.description,
           requireAccount: input.requireAccount,
           notifyOwner: input.notifyOwner,
+          multipleRetainedDays: input.multipleRetainedDays,
           ownerDigestCursor: now,
           // Le créateur connaît ce qu'il vient de créer : rien de nouveau pour lui.
           activityAt: now,

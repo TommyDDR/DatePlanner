@@ -6,7 +6,7 @@ consomme ses seaux de limitation (R11), publie l'événement « sondage changé 
 transaction, met les emails en file **dans** la transaction.
 
 Une action qui change ce que voit un participant (réponse, titre, description, jours, état,
-date retenue ; pas les options) fait aussi avancer, **après** la transaction, la version du
+dates retenues ; pas les options) fait aussi avancer, **après** la transaction, la version du
 sondage (`activityAt`), et note que son auteur connecté l'a vue : « Du nouveau » pour les
 autres, pas pour lui (FR-044, décision 034).
 
@@ -50,13 +50,13 @@ Toutes exigent une session ; toute écriture porte `WHERE owner_id = :session` e
 
 | Action | Entrée | Succès | Erreurs | FR |
 |---|---|---|---|---|
-| `createPoll` | `title` (1–120), `description?` (≤ 2000), `days: Day[]` (1–366, uniques, ≥ aujourd'hui Paris), `requireAccount`, `notifyOwner` | `{ publicId }` | `VALIDATION`, `RATE_LIMITED` | FR-007–012, FR-040, FR-041 |
+| `createPoll` | `title` (1–120), `description?` (≤ 2000), `days: Day[]` (1–366, uniques, ≥ aujourd'hui Paris), `requireAccount`, `notifyOwner`, `multipleRetainedDays` | `{ publicId }` | `VALIDATION`, `RATE_LIMITED` | FR-007–012, FR-040, FR-041, FR-045 |
 | `updatePollDetails` | `publicId`, `title`, `description?` | publié aux abonnés | `VALIDATION`, `NOT_FOUND` | FR-025 |
-| `changePollDays` | `publicId`, `add: Day[]` (≥ aujourd'hui, total ≤ 366), `remove: Day[]` (jours du sondage sans vote, hors date retenue) | jours ajoutés (doublons ignorés) et retirés, tout ou rien ; refusé pour `DAY_HAS_VOTES`, la page est relue | `VALIDATION`, `DAY_HAS_VOTES`, `LAST_DAY`, `NOT_FOUND` | FR-027 |
-| `setPollOptions` | `publicId`, `requireAccount?`, `notifyOwner?` | options enregistrées | `NOT_FOUND` | FR-040, FR-041 |
-| `closePoll` | `publicId`, `retainedDay?: Day` (jour du sondage) | `CLOSED` ; annonce FR-042 mise en file si `retainedDay` | `VALIDATION`, `NOT_FOUND` (dont déjà clos) | FR-026, FR-042 |
-| `setRetainedDay` | `publicId`, `retainedDay: Day \| null` | date changée ; annonce si nouvelle date non nulle | `VALIDATION` (jour étranger au sondage), `NOT_FOUND` (sondage absent ou encore ouvert) | FR-026, FR-042 |
-| `reopenPoll` | `publicId` | `OPEN`, date retenue effacée | `NOT_FOUND` | FR-026 |
+| `changePollDays` | `publicId`, `add: Day[]` (≥ aujourd'hui, total ≤ 366), `remove: Day[]` (jours du sondage sans vote, hors dates retenues) | jours ajoutés (doublons ignorés) et retirés, tout ou rien ; refusé pour `DAY_HAS_VOTES`, la page est relue | `VALIDATION`, `DAY_HAS_VOTES`, `LAST_DAY`, `NOT_FOUND` | FR-027 |
+| `setPollOptions` | `publicId`, `requireAccount?`, `notifyOwner?`, `multipleRetainedDays?` | options enregistrées | `VALIDATION` (`multipleRetainedDays` retirée alors que plusieurs dates sont retenues), `NOT_FOUND` | FR-040, FR-041, FR-045 |
+| `closePoll` | `publicId`, `retainedDays: Day[]` (jours du sondage ; un au plus sans `multipleRetainedDays` ; aucun : clos sans date) | `CLOSED` ; annonce FR-042 mise en file s'il y a des dates | `VALIDATION`, `NOT_FOUND` (dont déjà clos) | FR-026, FR-042, FR-045 |
+| `setRetainedDays` | `publicId`, `retainedDays: Day[]` (mêmes règles) | dates changées ; annonce si elles changent et qu'il en reste | `VALIDATION` (jour étranger au sondage, plusieurs dates sans l'option), `NOT_FOUND` (sondage absent ou encore ouvert) | FR-026, FR-042, FR-045 |
+| `reopenPoll` | `publicId` | `OPEN`, dates retenues effacées | `NOT_FOUND` | FR-026 |
 | `deleteResponse` | `publicId`, `responseId` | réponse et votes supprimés | `NOT_FOUND` | FR-039 |
 | `deletePoll` | `publicId` | sondage supprimé, redirection `/mes-sondages` | `NOT_FOUND` | FR-025 |
 

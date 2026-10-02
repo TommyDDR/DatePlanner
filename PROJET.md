@@ -52,7 +52,7 @@ src/
     retention.ts           durées de conservation (lues par la maintenance ET la politique)
   lib/                     modules PURS, sans base ni horloge implicite
     poll-rules.ts          jours valides, réponse acceptable, retrait d'un jour
-    poll-state.ts          clore, rouvrir, date retenue
+    poll-state.ts          clore, rouvrir, dates retenues
     availability.ts        synthèse : votes et votants par jour
     digest.ts              contenu du résumé au créateur
     date-picker.ts         grille, plages, semaines, clavier du calendrier
@@ -64,7 +64,7 @@ src/
     auth/                  sessions, mots de passe, service de connexion, Google, appareil, compte
     polls/                 création, lecture, réponses, édition, états, verrou du créateur
     events/bus.ts          LISTEN/NOTIFY vers les flux SSE
-    notifications/         file d'envoi, transport, composeurs (réinitialisation, résumé, date retenue, inactivité)
+    notifications/         file d'envoi, transport, composeurs (réinitialisation, résumé, dates retenues, inactivité)
     ratelimit/             fenêtres glissantes en base
     maintenance/           passage de maintenance et conservation
   app/                     pages et routes (contracts/pages.md, contracts/http-api.md)
@@ -105,8 +105,10 @@ Le serveur décide (constitution II) :
 - Réponses sous `SELECT … FOR SHARE` du sondage, opérations du créateur sous
   `FOR UPDATE` : une clôture ou un retrait de jour ne croise jamais un vote.
 - Les clés `vote → poll_day` et « date retenue → jour » sont différées
-  (`docs/decisions/027-cles-etrangeres-differees.md`) : un jour voté ne
-  disparaît pas seul, un sondage ou un compte supprimé emporte tout.
+  (`docs/decisions/027-cles-etrangeres-differees.md`) : un jour voté ou
+  retenu ne disparaît pas seul, un sondage ou un compte supprimé emporte tout.
+  Une date retenue tient aussi à l'état clos du sondage, par une clé vers
+  `poll(id, status)` (`docs/decisions/039-plusieurs-dates-retenues.md`).
 - Le flux en direct ne transporte que `{ kind, at }` : la page se relit
   avec ses propres contrôles d'accès.
 
@@ -179,7 +181,7 @@ Chaque exigence de `specs/001-date-poll/spec.md` et le fichier qui la vérifie.
 | FR-023 | direct sans rechargement | `tests/integration/live-stream.test.ts`, `tests/integration/bus.test.ts`, `e2e/live-updates.spec.ts` |
 | FR-024 | liste « Mes sondages » | `tests/integration/poll-owner.test.ts` |
 | FR-025 | droits du seul créateur | `tests/integration/poll-owner.test.ts`, `e2e/manage-poll.spec.ts` |
-| FR-026 | clore, rouvrir, date retenue | `tests/unit/poll-state.test.ts`, `tests/integration/poll-owner.test.ts`, `e2e/manage-poll.spec.ts` |
+| FR-026 | clore, rouvrir, dates retenues | `tests/unit/poll-state.test.ts`, `tests/integration/poll-owner.test.ts`, `e2e/manage-poll.spec.ts` |
 | FR-027 | ajouter des jours, retirer un jour sans vote | `tests/integration/poll-owner.test.ts`, `tests/integration/schema-constraints.test.ts` |
 | FR-028 | refus = introuvable | `tests/integration/poll-owner.test.ts`, `e2e/manage-poll.spec.ts` |
 | FR-029 | deux thèmes, système puis choix | `e2e/theme.spec.ts`, `tests/unit/theme.test.ts` |
@@ -195,8 +197,9 @@ Chaque exigence de `specs/001-date-poll/spec.md` et le fichier qui la vérifie.
 | FR-039 | suppression d'une réponse par le créateur | `tests/integration/poll-owner.test.ts`, `e2e/manage-poll.spec.ts` |
 | FR-040 | compte exigé | `tests/integration/create-poll.test.ts`, `tests/integration/poll-owner.test.ts`, `tests/integration/responses.test.ts`, `e2e/respond.spec.ts` |
 | FR-041 | résumé au créateur, désactivation | `tests/integration/notifications.test.ts`, `tests/unit/digest.test.ts`, `tests/unit/signed-link.test.ts` |
-| FR-042 | annonce de la date retenue | `tests/integration/notifications.test.ts` |
+| FR-042 | annonce des dates retenues | `tests/integration/notifications.test.ts` |
 | FR-043 | échec d'envoi sans effet sur l'action | `tests/integration/outbox.test.ts`, `tests/integration/notifications.test.ts` |
+| FR-045 | plusieurs dates retenues | `tests/unit/poll-state.test.ts`, `tests/integration/poll-owner.test.ts`, `tests/integration/create-poll.test.ts`, `tests/integration/schema-constraints.test.ts`, `e2e/manage-poll.spec.ts` |
 
 Critères de succès mesurés : SC-003 (`e2e/live-updates.spec.ts`), SC-004
 (`tests/integration/responses.test.ts`), SC-005

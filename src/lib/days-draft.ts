@@ -9,7 +9,7 @@ import type { Day, Marks } from '@/lib/date-picker';
  * écart qui part au serveur, d'un seul envoi.
  *
  * Un jour VERROUILLÉ ne se retire pas : il a reçu un vote (décision 022), ou
- * c'est la date retenue. Un vote peut arriver pendant que le créateur prépare
+ * c'est une date retenue. Un vote peut arriver pendant que le créateur prépare
  * ses changements : le retrait qu'il avait noté pour ce jour ne part plus, et
  * reste inscrit au brouillon pour qu'on l'en avertisse.
  */
@@ -24,12 +24,12 @@ export type SavedDays = {
   days: readonly Day[];
   /** Les jours qui portent au moins un vote. */
   voted: ReadonlySet<Day>;
-  retainedDay: Day | null;
+  retainedDays: readonly Day[];
 };
 
-/** Les jours qui ne se retirent pas : votés, ou date retenue. */
-export function lockedDays({ days, voted, retainedDay }: SavedDays): Day[] {
-  return days.filter((day) => voted.has(day) || day === retainedDay);
+/** Les jours qui ne se retirent pas : votés, ou dates retenues. */
+export function lockedDays({ days, voted, retainedDays }: SavedDays): Day[] {
+  return days.filter((day) => voted.has(day) || retainedDays.includes(day));
 }
 
 /** Les marques du calendrier : les jours libres qu'on garde, et ceux qu'on ajoute. */

@@ -10,6 +10,9 @@ export const metadata = { title: 'Mes sondages' };
 
 const CREATED = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeZone: 'Europe/Paris' });
 
+/** Les dates retenues nommées sur une ligne ; au-delà, leur nombre. */
+const RETAINED_SHOWN = 3;
+
 /**
  * Les sondages du compte (FR-024) : ceux qu'il a créés, les plus récents
  * d'abord, puis ceux d'autres comptes auxquels il a répondu. Un sondage qui a
@@ -108,9 +111,17 @@ function PollItem({ poll, detail }: { poll: MyPollRow; detail: string }) {
           ) : (
             <span className="label-tech">Clos</span>
           )}
-          {poll.retainedDay ? (
-            <span className="rounded-full bg-[var(--color-retained)] px-2.5 py-0.5 text-[var(--color-on-retained)] first-letter:uppercase">
-              {formatLongDay(poll.retainedDay)}
+          {poll.retainedDays.slice(0, RETAINED_SHOWN).map((day) => (
+            <span
+              key={day}
+              className="rounded-full bg-[var(--color-retained)] px-2.5 py-0.5 text-[var(--color-on-retained)] first-letter:uppercase"
+            >
+              {formatLongDay(day)}
+            </span>
+          ))}
+          {poll.retainedDays.length > RETAINED_SHOWN ? (
+            <span className="text-[var(--color-text-muted)]">
+              et {plural(poll.retainedDays.length - RETAINED_SHOWN, 'autre date', 'autres dates')}
             </span>
           ) : null}
         </span>

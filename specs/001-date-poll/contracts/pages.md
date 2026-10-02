@@ -14,8 +14,8 @@ page 404 ordinaire, identique qu'un objet n'existe pas ou soit refusé.
 | `/inscription` | sans session | non | email, nom d'affichage, mot de passe (règle affichée sous le champ), bouton Google | FR-001–003 |
 | `/mot-de-passe-oublie` | tous | non | email ; réponse toujours identique | FR-004 |
 | `/reinitialisation?jeton=…` | tous | non | nouveau mot de passe ; jeton invalide ou expiré : message neutre et lien vers `/mot-de-passe-oublie` | FR-004 |
-| `/nouveau` | session requise, sinon `/connexion?suite=/nouveau` | non | titre, description, calendrier de création, options « répondants connectés uniquement » et « me prévenir des nouvelles réponses » ; à la réussite : lien de partage et bouton Copier | FR-007–012, FR-040, FR-041 |
-| `/mes-sondages` | session requise | non | deux listes, un lien vers chaque sondage : « Créés par moi », plus récents d'abord (titre, nombre de répondants, date de création, état, date retenue), puis « Auxquels j'ai répondu », sondages d'autres comptes où le compte a répondu, sa réponse la plus récente d'abord (mêmes informations et nom du créateur) ; bordure orangée à gauche (et « du nouveau » pour les lecteurs d'écran) sur un sondage changé depuis la dernière visite, tenue à jour en direct par `/api/mes-sondages/flux` et au retour sur l'onglet | FR-024, FR-044 |
+| `/nouveau` | session requise, sinon `/connexion?suite=/nouveau` | non | titre, description, calendrier de création, options « répondants connectés uniquement », « me prévenir des nouvelles réponses » et « plusieurs dates retenues » ; à la réussite : lien de partage et bouton Copier | FR-007–012, FR-040, FR-041, FR-045 |
+| `/mes-sondages` | session requise | non | deux listes, un lien vers chaque sondage : « Créés par moi », plus récents d'abord (titre, nombre de répondants, date de création, état, dates retenues - trois nommées, puis leur nombre), puis « Auxquels j'ai répondu », sondages d'autres comptes où le compte a répondu, sa réponse la plus récente d'abord (mêmes informations et nom du créateur) ; bordure orangée à gauche (et « du nouveau » pour les lecteurs d'écran) sur un sondage changé depuis la dernière visite, tenue à jour en direct par `/api/mes-sondages/flux` et au retour sur l'onglet | FR-024, FR-044 |
 | `/s/{publicId}` | quiconque a le lien | non | voir ci-dessous | FR-013–023, FR-025–028, FR-039–041, FR-044 |
 | `/compte` | session requise | non | nom d'affichage, adresse, méthode de connexion, déconnexion, suppression du compte | FR-006 |
 | `/notifications/resume/desactiver?t=…` | tous (lien signé) | non | confirmation de la désactivation du résumé pour ce sondage ; jeton invalide : message neutre | FR-041 |
@@ -24,7 +24,7 @@ page 404 ordinaire, identique qu'un objet n'existe pas ou soit refusé.
 
 ## `/s/{publicId}` en détail
 
-**Pour tous** : titre, description, état (bandeau « Sondage clos » et date retenue en jade si
+**Pour tous** : titre, description, état (bandeau « Sondage clos » et dates retenues en jade si
 clos), calendrier avec pastilles de votes, dorées pour les jours les plus votés, infobulle des
 votants au survol et au focus, liste « Qui est disponible ? » sous le calendrier (jour, nombre,
 noms ; réponse connectée marquée), du plus voté au moins voté, le plus proche d'abord à égalité.
@@ -47,9 +47,10 @@ chaque rendu qui en montre une nouvelle : la bordure « du nouveau » disparaît
 **Panneau du créateur** (session du propriétaire seulement, jamais rendu aux autres) :
 modifier titre et description ; changer les jours sur le seul calendrier - jour sans vote
 orangé et retirable, jour voté gris et figé, jour libre ajouté d'un clic, le tout enregistré
-d'un envoi ; un retrait devancé par un vote tombe, avec un avertissement (décision 031) ; options compte exigé et résumé par email ; clore avec ou sans date
+d'un envoi ; un retrait devancé par un vote tombe, avec un avertissement (décision 031) ; options compte exigé, résumé par email et plusieurs dates retenues ; clore avec ou sans date
 retenue, changer la date retenue - choisie sur un calendrier parmi les seuls jours proposés,
-pastilles de votes en vue, les trois plus votés aussi d'une touche (décision 038) -, rouvrir ; supprimer une réponse (confirmation) ; supprimer le
+pastilles de votes en vue, les trois plus votés aussi d'une touche (décision 038) ; en choix
+multiple si le sondage permet plusieurs dates retenues (décision 039) -, rouvrir ; supprimer une réponse (confirmation) ; supprimer le
 sondage (confirmation) ; copier le lien.
 
 **Refus** : `publicId` mal formé, inconnu ou supprimé ⇒ introuvable.

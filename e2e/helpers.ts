@@ -17,7 +17,7 @@ export const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: u
 
 export async function resetDatabase(): Promise<void> {
   await db.$executeRawUnsafe(
-    'TRUNCATE "vote", "response", "poll_day", "poll", "password_reset_token", "session", "user", "email_outbox", "rate_limit_hit", "maintenance_run" RESTART IDENTITY CASCADE',
+    'TRUNCATE "retained_day", "vote", "response", "poll_day", "poll", "password_reset_token", "session", "user", "email_outbox", "rate_limit_hit", "maintenance_run" RESTART IDENTITY CASCADE',
   );
 }
 

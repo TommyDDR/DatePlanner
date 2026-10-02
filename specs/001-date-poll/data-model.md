@@ -7,8 +7,8 @@ de colonnes sont en anglais ; le vocabulaire de la spec est rappelé entre paren
 
 ```text
 User 1───* Poll 1───* PollDay 1───* Vote *───1 Response *───1 Poll
-  │                     ▲                          │
-  │                     └── retainedDay (0..1) ────┘ Poll
+  │                     │
+  │                     └──0..1 RetainedDay *───1 Poll (clos)
   └──* Response (réponses connectées)
 User 1───* Session, 1───* PasswordResetToken
 EmailOutbox, RateLimitHit, MaintenanceRun : tables techniques
@@ -68,35 +68,33 @@ EmailOutbox, RateLimitHit, MaintenanceRun : tables techniques
 | title | text | obligatoire, 1 à 120 caractères après retrait des espaces |
 | description | text? | 0 à 2 000 caractères ; vide enregistré comme `null` |
 | status | enum `OPEN` \| `CLOSED` | `OPEN` à la création |
-| retainedDayId | uuid? | → PollDay du même sondage ; non nul seulement si `status = CLOSED` |
 | requireAccount | boolean | `false` par défaut (FR-040) |
 | notifyOwner | boolean | `true` par défaut (FR-041) |
+| multipleRetainedDays | boolean | `false` par défaut (FR-045) : sans elle, une date retenue au plus |
 | ownerDigestSentAt | timestamp? | dernier résumé envoyé au créateur |
 | ownerDigestCursor | timestamp | réponses créées après cet instant = nouvelles pour le prochain résumé ; initialisé à la création |
-| activityAt | timestamp | version de ce que voit un participant (FR-044) : avance d'au moins 1 ms à chaque réponse donnée, modifiée, retirée ou supprimée et à chaque changement du titre, de la description, des jours, de l'état ou de la date retenue ; pas des options |
+| activityAt | timestamp | version de ce que voit un participant (FR-044) : avance d'au moins 1 ms à chaque réponse donnée, modifiée, retirée ou supprimée et à chaque changement du titre, de la description, des jours, de l'état ou des dates retenues ; pas des options |
 | ownerSeenAt | timestamp? | dernière version vue par le créateur ; `null` : jamais vue ; plus petite que `activityAt` : « Du nouveau » |
 | closedAt | timestamp? | |
 | createdAt, updatedAt | timestamp | |
 
-- **Contraintes** : `CHECK (status = 'CLOSED' OR retained_day_id IS NULL)` ; la clé étrangère
-  `retainedDayId` porte aussi `pollId` (clé composite) pour interdire un jour d'un autre
-  sondage.
+- **Contraintes** : `UNIQUE (id, status)`, cible de la clé de `RetainedDay` (voir plus bas).
 - **Dernier jour proposé** : calculé (`max(PollDay.day)`), base de la purge à 12 mois.
 
 ### Transitions d'état
 
 ```text
-            close(retainedDay?)                     setRetainedDay(day | null)
+            close(retainedDays?)                    setRetainedDays(days)
   OPEN ───────────────────────────▶ CLOSED ◀──────────────────────────────┐
    ▲                                  │  └────────────────────────────────┘
-   └──────────── reopen() ────────────┘   (reopen efface retainedDayId)
+   └──────────── reopen() ────────────┘   (reopen efface les RetainedDay)
 ```
 
 | Action | Depuis | Vers | Garde (serveur) | Effets |
 |---|---|---|---|---|
-| close | OPEN | CLOSED | créateur | `closedAt` ; `retainedDayId` si fourni (jour du sondage) ; annonce FR-042 si date retenue |
-| setRetainedDay | CLOSED | CLOSED | créateur ; jour du sondage | annonce FR-042 si la date change et n'est pas `null` |
-| reopen | CLOSED | OPEN | créateur | `retainedDayId = null`, `closedAt = null` |
+| close | OPEN | CLOSED | créateur ; jours du sondage ; un seul sans `multipleRetainedDays` | `closedAt` ; une `RetainedDay` par date fournie ; annonce FR-042 s'il y en a |
+| setRetainedDays | CLOSED | CLOSED | créateur ; jours du sondage ; un seul sans `multipleRetainedDays` | annonce FR-042 si les dates changent et qu'il en reste |
+| reopen | CLOSED | OPEN | créateur | `RetainedDay` effacées, `closedAt = null` |
 
 Toutes les transitions sont des écritures conditionnelles (`WHERE id = … AND status = …`) :
 deux clics simultanés n'en appliquent qu'un.
@@ -112,14 +110,28 @@ deux clics simultanés n'en appliquent qu'un.
 - **Création et ajout** (FR-010, FR-011, FR-027) : `day ≥ aujourd'hui (Paris)` ; au plus 366
   jours par sondage, vérifié dans la même transaction que l'insertion.
 - **Retrait** (FR-027) : `DELETE … WHERE id = ? AND NOT EXISTS (vote sur ce jour)` et le sondage
-  garde au moins un jour ; la clé étrangère `Vote → PollDay` et celle de `retainedDayId`
+  garde au moins un jour ; la clé étrangère `Vote → PollDay` et celle de `RetainedDay`
   sont en `NO ACTION DEFERRABLE INITIALLY DEFERRED` : même une course perdue ne peut pas
-  effacer un vote ni la date retenue. Différées, et non simplement `NO ACTION` ou
+  effacer un vote ni une date retenue. Différées, et non simplement `NO ACTION` ou
   `RESTRICT` : PostgreSQL exécute chaque cascade comme une instruction à part et y vérifie
   une contrainte ordinaire avant que la cascade voisine (réponses, puis votes) ait eu lieu ;
   la suppression d'un sondage ou d'un compte échouerait. Vérifiées à la validation de la
   transaction, elles laissent passer la cascade et refusent toujours le retrait direct d'un
   jour voté (vérifié par `tests/integration/schema-constraints.test.ts`).
+
+## RetainedDay (Date retenue)
+
+| Champ | Type | Règles |
+|---|---|---|
+| pollId | uuid | clé avec `pollDayId` |
+| pollDayId | uuid | → PollDay du même sondage : clé composite vers `poll_day(poll_id, id)`, `NO ACTION DEFERRABLE INITIALLY DEFERRED` |
+| pollStatus | enum | toujours `CLOSED` (`CHECK`) ; avec `pollId`, clé vers `poll(id, status)`, `ON DELETE CASCADE ON UPDATE NO ACTION` |
+
+- Une ligne par date retenue (FR-026, FR-045, décision 039). La clé vers `poll(id, status)`
+  ne trouve un sondage que s'il est clos : la base refuse une date retenue sur un sondage
+  ouvert, et la réouverture d'un sondage qui en garde - la réouverture les efface d'abord.
+- **Une seule date sans `multipleRetainedDays`** : vérifié par le serveur sous le verrou du
+  sondage, à la clôture, au changement des dates et au changement de l'option.
 
 ## Response (Réponse)
 

@@ -59,16 +59,20 @@ export async function changePollDays(
     return await prisma.$transaction(async (tx) => {
       const poll = await lockOwnedPoll(tx, ownerId, publicId);
       if (!poll) return fail(NOT_FOUND);
-      const existing = await tx.pollDay.findMany({ where: { pollId: poll.id }, select: { id: true, day: true } });
+      const existing = await tx.pollDay.findMany({
+        where: { pollId: poll.id },
+        select: { id: true, day: true, retained: { select: { pollDayId: true } } },
+      });
       const byDay = new Map(existing.map((d) => [dayFromDate(d.day), d.id]));
+      const retained = new Set(existing.filter((d) => d.retained).map((d) => d.id));
 
       const remove = new Set(change.remove);
       const targets: Array<{ day: Day; id: string }> = [];
       for (const day of remove) {
         const id = byDay.get(day);
         if (!id) return fail(NOT_FOUND);
-        if (id === poll.retainedDayId) {
-          return fail({ code: 'VALIDATION', fields: { _form: 'La date retenue ne peut pas être retirée.' } });
+        if (retained.has(id)) {
+          return fail({ code: 'VALIDATION', fields: { _form: 'Une date retenue ne peut pas être retirée.' } });
         }
         targets.push({ day, id });
       }
@@ -104,15 +108,25 @@ function isForeignKeyViolation(error: unknown): boolean {
   return error instanceof Error && /foreign key|23503/i.test(error.message);
 }
 
-/** Options du sondage (FR-040, FR-041). Désactiver le résumé annule celui en attente. */
+/**
+ * Options du sondage (FR-040, FR-041, décision 039). Désactiver le résumé
+ * annule celui en attente ; un sondage qui a retenu plusieurs dates les garde
+ * toutes, ou n'en garde qu'une avant de revenir à une seule.
+ */
 export async function setPollOptions(
   ownerId: string,
   publicId: string,
-  options: { requireAccount: boolean; notifyOwner: boolean },
+  options: { requireAccount: boolean; notifyOwner: boolean; multipleRetainedDays: boolean },
 ): Promise<Owned> {
   return prisma.$transaction(async (tx) => {
     const poll = await lockOwnedPoll(tx, ownerId, publicId);
     if (!poll) return fail(NOT_FOUND);
+    if (!options.multipleRetainedDays && (await tx.retainedDay.count({ where: { pollId: poll.id } })) > 1) {
+      return fail({
+        code: 'VALIDATION',
+        fields: { _form: 'Plusieurs dates sont retenues : n’en gardez qu’une avant de décocher « Plusieurs dates retenues ».' },
+      });
+    }
     await tx.poll.update({ where: { id: poll.id }, data: options });
     if (!options.notifyOwner) {
       await tx.emailOutbox.updateMany({

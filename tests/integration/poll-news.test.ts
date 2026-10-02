@@ -16,7 +16,7 @@ import {
 import { getPollByPublicId, listOwnerPolls, listRespondedPolls } from '@/server/polls/read';
 import { setTestHeaders, testCookies, TestRedirect } from '../setup';
 import { resetDatabase } from '../helpers/db';
-import { createPoll, createResponse, createSessionFor, createUser, dayFromToday } from '../helpers/factories';
+import { createPoll, createResponse, createSessionFor, createUser, dayFromToday, retainDays } from '../helpers/factories';
 
 /** « Mes sondages » : ceux auxquels on a répondu, et ce qui a changé depuis la dernière visite (FR-024, FR-044). */
 
@@ -73,7 +73,7 @@ describe('auxquels j’ai répondu', () => {
     const me = await createUser();
     const alice = await createUser({ displayName: 'Alice' });
     const first = await createPoll({ owner: alice, title: 'Premier', status: 'CLOSED' });
-    await prisma.poll.update({ where: { id: first.id }, data: { retainedDayId: first.days[0]!.id } });
+    await retainDays(first, [dayFromToday(3)]);
     const second = await createPoll({ owner: alice, title: 'Second' });
     const mine = await createPoll({ owner: me, title: 'Le mien' });
     const other = await createPoll({ owner: alice, title: 'Sans moi' });
@@ -87,8 +87,8 @@ describe('auxquels j’ai répondu', () => {
 
     const list = await listRespondedPolls(me.id);
     expect(list.map((p) => p.title)).toEqual(['Second', 'Premier']);
-    expect(list[1]).toMatchObject({ ownerName: 'Alice', respondents: 2, status: 'CLOSED', retainedDay: dayFromToday(3) });
-    expect(list[0]).toMatchObject({ ownerName: 'Alice', respondents: 1, status: 'OPEN', retainedDay: null });
+    expect(list[1]).toMatchObject({ ownerName: 'Alice', respondents: 2, status: 'CLOSED', retainedDays: [dayFromToday(3)] });
+    expect(list[0]).toMatchObject({ ownerName: 'Alice', respondents: 1, status: 'OPEN', retainedDays: [] });
   });
 
   it('ignore une réponse donnée sans compte', async () => {
@@ -166,7 +166,7 @@ describe('du nouveau', () => {
     const changes = [
       () => updatePollDetailsAction(null, form({ publicId: id, title: 'Nouveau titre' })),
       () => changePollDaysAction(null, form({ publicId: id, add: [dayFromToday(9)] })),
-      () => closePollAction(null, form({ publicId: id, retainedDay: dayFromToday(3) })),
+      () => closePollAction(null, form({ publicId: id, retainedDays: [dayFromToday(3)] })),
       () => reopenPollAction(null, form({ publicId: id })),
       () => deleteResponseAction(null, form({ publicId: id, responseId: response.id })),
     ];

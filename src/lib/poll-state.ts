@@ -3,49 +3,48 @@ import type { Day } from '@/lib/paris-day';
 /**
  * États d'un sondage - module PUR (data-model.md, FR-026).
  *
- *            close(date?)                       setRetainedDay(date | null)
+ *            close(dates?)                      setRetainedDays(dates)
  *   OPEN ─────────────────▶ CLOSED ◀──────────────────────────────┐
  *    ▲                        │  └─────────────────────────────────┘
- *    └────── reopen() ────────┘   (rouvrir efface la date retenue)
+ *    └────── reopen() ────────┘   (rouvrir efface les dates retenues)
  *
- * `announce` dit quelle date annoncer aux répondants connectés (FR-042) : une
- * date retenue désignée ou CHANGÉE. Une date inchangée ou retirée ne s'annonce
- * pas.
+ * Un sondage retient au plus une date, ou plusieurs s'il le permet
+ * (`multiple`, décision 039). Les dates retenues sont rendues triées, sans
+ * doublon.
+ *
+ * `announce` dit quelles dates annoncer aux répondants connectés (FR-042) :
+ * toutes les dates retenues, quand elles ont changé et qu'il en reste. Des
+ * dates inchangées, ou toutes retirées, ne s'annoncent pas.
  */
 
-export type PollState = { status: 'OPEN' | 'CLOSED'; retainedDay: Day | null };
+export type PollState = { status: 'OPEN' | 'CLOSED'; retainedDays: readonly Day[] };
 
 export type Transition =
-  | { kind: 'close'; retainedDay?: Day | null }
-  | { kind: 'setRetainedDay'; retainedDay: Day | null }
+  | { kind: 'close'; retainedDays?: readonly Day[] }
+  | { kind: 'setRetainedDays'; retainedDays: readonly Day[] }
   | { kind: 'reopen' };
 
-export type TransitionResult =
-  | { ok: true; next: PollState; announce: Day | null }
-  | { ok: false; error: 'INVALID_STATE' | 'NOT_A_POLL_DAY' };
+/** Ce que la transition doit savoir du sondage : ses jours, et s'il retient plusieurs dates. */
+export type PollFrame = { days: ReadonlySet<Day>; multiple: boolean };
 
-export function applyTransition(
-  state: PollState,
-  transition: Transition,
-  pollDays: ReadonlySet<Day>,
-): TransitionResult {
+export type TransitionResult =
+  | { ok: true; next: PollState; announce: Day[] | null }
+  | { ok: false; error: 'INVALID_STATE' | 'NOT_A_POLL_DAY' | 'SINGLE_RETAINED_DAY' };
+
+export function applyTransition(state: PollState, transition: Transition, frame: PollFrame): TransitionResult {
   switch (transition.kind) {
-    case 'close': {
-      if (state.status !== 'OPEN') return { ok: false, error: 'INVALID_STATE' };
-      const day = transition.retainedDay ?? null;
-      if (day !== null && !pollDays.has(day)) return { ok: false, error: 'NOT_A_POLL_DAY' };
-      return { ok: true, next: { status: 'CLOSED', retainedDay: day }, announce: day };
-    }
-    case 'setRetainedDay': {
-      if (state.status !== 'CLOSED') return { ok: false, error: 'INVALID_STATE' };
-      const day = transition.retainedDay;
-      if (day !== null && !pollDays.has(day)) return { ok: false, error: 'NOT_A_POLL_DAY' };
-      const announce = day !== null && day !== state.retainedDay ? day : null;
-      return { ok: true, next: { status: 'CLOSED', retainedDay: day }, announce };
+    case 'close':
+    case 'setRetainedDays': {
+      if (state.status !== (transition.kind === 'close' ? 'OPEN' : 'CLOSED')) return { ok: false, error: 'INVALID_STATE' };
+      const days = [...new Set(transition.retainedDays ?? [])].sort();
+      if (days.some((day) => !frame.days.has(day))) return { ok: false, error: 'NOT_A_POLL_DAY' };
+      if (days.length > 1 && !frame.multiple) return { ok: false, error: 'SINGLE_RETAINED_DAY' };
+      const changed = days.join(',') !== [...state.retainedDays].sort().join(',');
+      return { ok: true, next: { status: 'CLOSED', retainedDays: days }, announce: changed && days.length > 0 ? days : null };
     }
     case 'reopen': {
       if (state.status !== 'CLOSED') return { ok: false, error: 'INVALID_STATE' };
-      return { ok: true, next: { status: 'OPEN', retainedDay: null }, announce: null };
+      return { ok: true, next: { status: 'OPEN', retainedDays: [] }, announce: null };
     }
   }
 }
