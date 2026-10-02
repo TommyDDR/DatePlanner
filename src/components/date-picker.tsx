@@ -1133,7 +1133,8 @@ export function DatePicker({
         ) : summary !== undefined ? (
           summary
         ) : (
-        <p aria-live="polite" className="text-xs text-[var(--color-text-muted)]">
+        // Toujours sous la légende, même court : « Aucun jour marqué » ne se colle pas à ses pastilles.
+        <p aria-live="polite" className="basis-full text-xs text-[var(--color-text-muted)]">
           {multiple ? (
             total === 0 ? (
               'Aucun jour marqué'

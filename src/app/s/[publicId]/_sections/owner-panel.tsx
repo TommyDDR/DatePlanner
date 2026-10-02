@@ -264,7 +264,8 @@ function RetainedDayPicker({
         markedMonths={markedMonths}
         initialDay={favorites[0]?.day ?? days.find((day) => day >= today) ?? null}
         summary={
-          <p aria-live="polite" className="text-xs text-[var(--color-text-muted)]">
+          // Toujours sous la légende, même court : « Aucune date retenue » ne se colle pas à ses pastilles.
+          <p aria-live="polite" className="basis-full text-xs text-[var(--color-text-muted)]">
             {chosen ? (
               <>
                 Retenue : <span className="font-medium text-[var(--color-text)]">{formatLongDay(chosen)}</span>
