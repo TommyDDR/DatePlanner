@@ -13,21 +13,30 @@ import { absoluteUrl, button, escapeHtml, layout, paragraph, textFooter } from '
  * base : il annonce les réponses créées depuis le résumé précédent et encore
  * présentes. Un seul résumé en attente par sondage - l'index unique partiel de
  * la file le garantit, même sous deux réponses simultanées.
+ *
+ * Seules les réponses des AUTRES comptent : celle que le créateur donne
+ * lui-même, connecté, ne programme rien et n'apparaît dans aucun résumé.
  */
 
 export const OWNER_DIGEST_PURPOSE = 'owner-digest';
 
 /**
  * Programme le résumé d'un sondage s'il n'y en a pas déjà un en attente.
- * Rend l'identifiant de l'entrée créée, ou `null`. À appeler DANS la
- * transaction de la réponse ; l'appelant lance l'envoi une fois validée.
+ * `respondentUserId` est le compte qui vient de répondre (`null` sans
+ * session) : rien n'est programmé quand c'est le créateur. Rend
+ * l'identifiant de l'entrée créée, ou `null`. À appeler DANS la transaction
+ * de la réponse ; l'appelant lance l'envoi une fois validée.
  */
-export async function scheduleOwnerDigest(tx: Tx, pollId: string): Promise<{ id: string; sendAfter: Date } | null> {
+export async function scheduleOwnerDigest(
+  tx: Tx,
+  pollId: string,
+  respondentUserId: string | null,
+): Promise<{ id: string; sendAfter: Date } | null> {
   const poll = await tx.poll.findUnique({
     where: { id: pollId },
-    select: { notifyOwner: true, ownerDigestSentAt: true, owner: { select: { email: true } } },
+    select: { ownerId: true, notifyOwner: true, ownerDigestSentAt: true, owner: { select: { email: true } } },
   });
-  if (!poll || !poll.notifyOwner) return null;
+  if (!poll || !poll.notifyOwner || poll.ownerId === respondentUserId) return null;
 
   const id = randomUUID();
   const sendAfter = nextDigestAt(new Date(), poll.ownerDigestSentAt);
@@ -58,21 +67,24 @@ registerComposer('OWNER_DIGEST', async (entry) => {
     select: {
       publicId: true,
       title: true,
+      ownerId: true,
       notifyOwner: true,
       ownerDigestCursor: true,
       responses: {
-        select: { createdAt: true, pseudonym: true, user: { select: { displayName: true } } },
+        select: { createdAt: true, pseudonym: true, userId: true, user: { select: { displayName: true } } },
       },
     },
   });
   if (!poll || !poll.notifyOwner) return null;
 
   const digest = digestSince(
-    poll.responses.map((r) => ({
-      name: r.user?.displayName ?? r.pseudonym ?? '',
-      account: r.user !== null,
-      createdAt: r.createdAt,
-    })),
+    poll.responses
+      .filter((r) => r.userId !== poll.ownerId)
+      .map((r) => ({
+        name: r.user?.displayName ?? r.pseudonym ?? '',
+        account: r.user !== null,
+        createdAt: r.createdAt,
+      })),
     poll.ownerDigestCursor,
   );
   if (!digest) return null;

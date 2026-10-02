@@ -483,7 +483,9 @@ en sombre ; basculer en clair, recharger : il reste clair.
 - **FR-041**: Le créateur DOIT recevoir un email signalant les nouvelles
   réponses à son sondage, regroupées : le premier email part 15 minutes après la
   première nouvelle réponse, puis au plus un email par sondage toutes les
-  30 minutes, chacun listant les répondants arrivés depuis le précédent. Cette option
+  30 minutes, chacun listant les répondants arrivés depuis le précédent. Seules
+  les réponses des autres comptent : celle que le créateur donne lui-même ne
+  déclenche aucun email et n'y figure pas. Cette option
   du sondage est activée par défaut et désactivable par le créateur, depuis le
   sondage ou depuis un lien présent dans chaque email.
 - **FR-042**: Quand le créateur désigne ou change la date retenue, chaque
