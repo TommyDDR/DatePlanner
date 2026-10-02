@@ -43,7 +43,7 @@ data: {"kind":"responses","at":"2026-09-30T14:02:11.412Z"}
 | `kind` | Émis après |
 |---|---|
 | `responses` | réponse créée, modifiée, retirée ou supprimée par le créateur |
-| `poll` | titre, description, jours, options, clôture, date retenue ou réouverture modifiés |
+| `poll` | titre, description, jours, options, clôture, dates retenues ou réouverture modifiés |
 | `deleted` | sondage supprimé (la page se relit et affiche « introuvable ») |
 
 - Aucune donnée métier dans un événement : la page appelle `router.refresh()` et le rendu

@@ -90,7 +90,7 @@ production refuse une adresse publique en `http`, et un éditeur absent.
 
 Avec `EMAIL_DRIVER=console`, **aucun email réel ne part** : chacun est écrit
 dans le terminal. Les emails du service : réinitialisation du mot de passe,
-résumé des nouvelles réponses au créateur, annonce de la date retenue,
+résumé des nouvelles réponses au créateur, annonce des dates retenues,
 avertissement avant suppression d'un compte inactif.
 
 **Gmail** (production, compte `notificationslaserit@gmail.com`) : la

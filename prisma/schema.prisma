@@ -8,9 +8,9 @@
 //  - tables et colonnes en snake_case (`@@map`, `@map`) : les contraintes
 //    écrites à la main dans les migrations se lisent sans guillemets.
 //
-// Les contraintes que Prisma ne sait pas déclarer (CHECK, index partiels, clé
-// étrangère composite de la date retenue) sont ajoutées dans la migration
-// initiale, `prisma/migrations/0001_init/migration.sql`.
+// Les contraintes que Prisma ne sait pas déclarer (CHECK, index partiels, clés
+// étrangères différées) sont ajoutées dans les migrations, à la main :
+// `prisma/migrations/0001_init/migration.sql` et les suivantes.
 
 generator client {
   provider = "prisma-client-js"
@@ -124,11 +124,11 @@ model Poll {
   description String?
 
   status         PollStatus @default(OPEN)
-  /// Un des jours du sondage, seulement quand il est clos (CHECK et clé
-  /// étrangère composite dans la migration).
-  retainedDayId  String?    @map("retained_day_id") @db.Uuid
   requireAccount Boolean    @default(false) @map("require_account")
   notifyOwner    Boolean    @default(true) @map("notify_owner")
+  /// Le créateur peut retenir plusieurs jours à la clôture ; sans cette
+  /// option, une seule date retenue au plus (décision 039).
+  multipleRetainedDays Boolean @default(false) @map("multiple_retained_days")
 
   ownerDigestSentAt DateTime? @map("owner_digest_sent_at")
   /// Réponses créées après cet instant = nouvelles pour le prochain résumé.
@@ -146,11 +146,14 @@ model Poll {
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
 
-  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  days      PollDay[]
-  responses Response[]
+  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  days         PollDay[]
+  responses    Response[]
+  retainedDays RetainedDay[]
 
   @@index([ownerId, createdAt])
+  /// La cible de la clé de `RetainedDay` : un jour retenu tient à l'ÉTAT clos du sondage.
+  @@unique([id, status])
   @@map("poll")
 }
 
@@ -159,12 +162,33 @@ model PollDay {
   pollId String   @map("poll_id") @db.Uuid
   day    DateTime @db.Date
 
-  poll  Poll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
-  votes Vote[]
+  poll     Poll         @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes    Vote[]
+  retained RetainedDay?
 
   @@unique([pollId, day])
   @@unique([pollId, id])
   @@map("poll_day")
+}
+
+/// Un jour retenu d'un sondage clos : un seul, ou plusieurs si le sondage le
+/// permet (`multipleRetainedDays`, décision 039).
+model RetainedDay {
+  pollId     String     @map("poll_id") @db.Uuid
+  /// NoAction, rendue DIFFÉRÉE par la migration : un jour retenu ne se retire
+  /// pas, mais la cascade d'un sondage ou d'un compte supprimé passe.
+  pollDayId  String     @map("poll_day_id") @db.Uuid
+  /// Toujours `CLOSED` (CHECK dans la migration). Avec `pollId`, il forme la
+  /// clé vers `poll(id, status)` : pas de jour retenu sur un sondage ouvert, et
+  /// un sondage qui en a ne se rouvre pas sans les effacer.
+  pollStatus PollStatus @default(CLOSED) @map("poll_status")
+
+  poll    Poll    @relation(fields: [pollId, pollStatus], references: [id, status], onDelete: Cascade, onUpdate: NoAction)
+  /// Un jour DE CE sondage : clé composite vers `poll_day(poll_id, id)`.
+  pollDay PollDay @relation(fields: [pollId, pollDayId], references: [pollId, id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([pollId, pollDayId])
+  @@map("retained_day")
 }
 
 model Response {

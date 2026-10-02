@@ -8,13 +8,22 @@ import {
   deleteResponseAction,
   reopenPollAction,
   setPollOptionsAction,
-  setRetainedDayAction,
+  setRetainedDaysAction,
   updatePollDetailsAction,
 } from '@/app/s/[publicId]/actions';
 import { listOwnerPolls } from '@/server/polls/read';
 import { testCookies, TestRedirect } from '../setup';
 import { resetDatabase } from '../helpers/db';
-import { createPoll, createResponse, createSessionFor, createUser, dayDate, dayFromToday } from '../helpers/factories';
+import {
+  createPoll,
+  createResponse,
+  createSessionFor,
+  createUser,
+  dayDate,
+  dayFromToday,
+  retainDays,
+  retainedDaysOf,
+} from '../helpers/factories';
 
 /** Ce que le créateur fait de son sondage (FR-024 à FR-028, FR-039, FR-040). */
 
@@ -123,9 +132,9 @@ describe('titre, description, jours, options', () => {
     expect(await days(poll.id)).toEqual([dayFromToday(3), dayFromToday(4), dayFromToday(5)]);
   });
 
-  it('refuse de retirer la date retenue ou un jour étranger au sondage', async () => {
+  it('refuse de retirer une date retenue ou un jour étranger au sondage', async () => {
     const { poll } = await ownPoll({ days: [dayFromToday(3), dayFromToday(4)] });
-    await closePollAction(null, form({ publicId: poll.publicId, retainedDay: dayFromToday(4) }));
+    await closePollAction(null, form({ publicId: poll.publicId, retainedDays: [dayFromToday(4)] }));
     const retained = await changePollDaysAction(null, form({ publicId: poll.publicId, remove: [dayFromToday(4)] }));
     expect(retained?.error).toMatchObject({ code: 'VALIDATION' });
     const foreign = await changePollDaysAction(null, form({ publicId: poll.publicId, remove: [dayFromToday(9)] }));
@@ -144,40 +153,80 @@ describe('titre, description, jours, options', () => {
 
   it('enregistre les options', async () => {
     const { poll } = await ownPoll();
-    await setPollOptionsAction(null, form({ publicId: poll.publicId, requireAccount: 'on' }));
+    await setPollOptionsAction(null, form({ publicId: poll.publicId, requireAccount: 'on', multipleRetainedDays: 'on' }));
     expect(await prisma.poll.findUniqueOrThrow({ where: { id: poll.id } })).toMatchObject({
       requireAccount: true,
       notifyOwner: false,
+      multipleRetainedDays: true,
     });
+  });
+
+  it('ne revient à une seule date retenue que s’il n’en reste qu’une', async () => {
+    const { poll } = await ownPoll({ status: 'CLOSED', multipleRetainedDays: true });
+    await retainDays(poll, [dayFromToday(3), dayFromToday(4)]);
+    const single = () => setPollOptionsAction(null, form({ publicId: poll.publicId, notifyOwner: 'on' }));
+    expect((await single())?.error).toMatchObject({ code: 'VALIDATION' });
+    expect((await prisma.poll.findUniqueOrThrow({ where: { id: poll.id } })).multipleRetainedDays).toBe(true);
+
+    await setRetainedDaysAction(null, form({ publicId: poll.publicId, retainedDays: [dayFromToday(4)] }));
+    expect(await single()).toMatchObject({ done: true });
+    expect((await prisma.poll.findUniqueOrThrow({ where: { id: poll.id } })).multipleRetainedDays).toBe(false);
   });
 });
 
 describe('clôture', () => {
   it('clôt sans date, puis avec une date qu’on change, puis rouvre', async () => {
     const { poll } = await ownPoll();
-    await closePollAction(null, form({ publicId: poll.publicId, retainedDay: '' }));
-    expect(await prisma.poll.findUniqueOrThrow({ where: { id: poll.id } })).toMatchObject({ status: 'CLOSED', retainedDayId: null });
+    await closePollAction(null, form({ publicId: poll.publicId }));
+    expect(await prisma.poll.findUniqueOrThrow({ where: { id: poll.id } })).toMatchObject({ status: 'CLOSED' });
+    expect(await retainedDaysOf(poll.id)).toEqual([]);
 
-    await setRetainedDayAction(null, form({ publicId: poll.publicId, retainedDay: dayFromToday(4) }));
-    const retained = await prisma.poll.findUniqueOrThrow({ where: { id: poll.id }, include: { days: true } });
-    expect(retained.days.find((d) => d.id === retained.retainedDayId)?.day.toISOString().slice(0, 10)).toBe(dayFromToday(4));
+    await setRetainedDaysAction(null, form({ publicId: poll.publicId, retainedDays: [dayFromToday(4)] }));
+    expect(await retainedDaysOf(poll.id)).toEqual([dayFromToday(4)]);
+    await setRetainedDaysAction(null, form({ publicId: poll.publicId, retainedDays: [dayFromToday(5)] }));
+    expect(await retainedDaysOf(poll.id)).toEqual([dayFromToday(5)]);
 
     await reopenPollAction(null, form({ publicId: poll.publicId }));
-    expect(await prisma.poll.findUniqueOrThrow({ where: { id: poll.id } })).toMatchObject({
-      status: 'OPEN',
-      retainedDayId: null,
-      closedAt: null,
-    });
+    expect(await prisma.poll.findUniqueOrThrow({ where: { id: poll.id } })).toMatchObject({ status: 'OPEN', closedAt: null });
+    expect(await retainedDaysOf(poll.id)).toEqual([]);
   });
 
   it('refuse une date retenue étrangère au sondage, ou sur un sondage ouvert', async () => {
     const { poll } = await ownPoll();
-    expect((await setRetainedDayAction(null, form({ publicId: poll.publicId, retainedDay: dayFromToday(4) })))?.error).toEqual({
+    expect((await setRetainedDaysAction(null, form({ publicId: poll.publicId, retainedDays: [dayFromToday(4)] })))?.error).toEqual({
       code: 'NOT_FOUND',
     });
-    expect((await closePollAction(null, form({ publicId: poll.publicId, retainedDay: dayFromToday(30) })))?.error).toMatchObject({
+    expect((await closePollAction(null, form({ publicId: poll.publicId, retainedDays: [dayFromToday(30)] })))?.error).toMatchObject({
       code: 'VALIDATION',
     });
+  });
+
+  it('refuse plusieurs dates retenues sans l’option', async () => {
+    const { poll } = await ownPoll();
+    const state = await closePollAction(
+      null,
+      form({ publicId: poll.publicId, retainedDays: [dayFromToday(3), dayFromToday(4)] }),
+    );
+    expect(state?.error).toMatchObject({ code: 'VALIDATION', fields: { retainedDays: expect.any(String) } });
+    expect((await prisma.poll.findUniqueOrThrow({ where: { id: poll.id } })).status).toBe('OPEN');
+  });
+
+  it('clôt sur plusieurs dates, en change, puis rouvre, avec l’option', async () => {
+    const { poll } = await ownPoll({ multipleRetainedDays: true });
+    await closePollAction(
+      null,
+      form({ publicId: poll.publicId, retainedDays: [dayFromToday(5), dayFromToday(3), dayFromToday(5)] }),
+    );
+    expect(await retainedDaysOf(poll.id)).toEqual([dayFromToday(3), dayFromToday(5)]);
+
+    await setRetainedDaysAction(null, form({ publicId: poll.publicId, retainedDays: [dayFromToday(3), dayFromToday(4)] }));
+    expect(await retainedDaysOf(poll.id)).toEqual([dayFromToday(3), dayFromToday(4)]);
+    const remove = await changePollDaysAction(null, form({ publicId: poll.publicId, remove: [dayFromToday(3)] }));
+    expect(remove?.error).toMatchObject({ code: 'VALIDATION' });
+
+    await reopenPollAction(null, form({ publicId: poll.publicId }));
+    expect((await prisma.poll.findUniqueOrThrow({ where: { id: poll.id } })).status).toBe('OPEN');
+    expect(await retainedDaysOf(poll.id)).toEqual([]);
   });
 
   it('n’applique qu’une de deux clôtures simultanées, et n’annonce qu’une fois', async () => {
@@ -185,8 +234,8 @@ describe('clôture', () => {
     const voter = await createUser({ email: 'voter@example.test' });
     await createResponse({ poll, user: voter, days: [dayFromToday(3)] });
     const [a, b] = await Promise.all([
-      closePollAction(null, form({ publicId: poll.publicId, retainedDay: dayFromToday(3) })),
-      closePollAction(null, form({ publicId: poll.publicId, retainedDay: dayFromToday(3) })),
+      closePollAction(null, form({ publicId: poll.publicId, retainedDays: [dayFromToday(3)] })),
+      closePollAction(null, form({ publicId: poll.publicId, retainedDays: [dayFromToday(3)] })),
     ]);
     expect([a?.done, b?.done].filter(Boolean)).toHaveLength(1);
     expect(await prisma.emailOutbox.count({ where: { template: 'RETAINED_DAY' } })).toBe(1);
@@ -196,10 +245,10 @@ describe('clôture', () => {
     const { poll } = await ownPoll({ status: 'CLOSED' });
     await Promise.all([
       reopenPollAction(null, form({ publicId: poll.publicId })),
-      setRetainedDayAction(null, form({ publicId: poll.publicId, retainedDay: dayFromToday(3) })),
+      setRetainedDaysAction(null, form({ publicId: poll.publicId, retainedDays: [dayFromToday(3)] })),
     ]);
     const after = await prisma.poll.findUniqueOrThrow({ where: { id: poll.id } });
-    if (after.status === 'OPEN') expect(after.retainedDayId).toBeNull();
+    if (after.status === 'OPEN') expect(await retainedDaysOf(poll.id)).toEqual([]);
   });
 });
 
@@ -216,7 +265,7 @@ describe('réponses et suppression', () => {
   it('supprime un sondage clos portant des votes et une date retenue, et annule ses emails en attente', async () => {
     const { poll } = await ownPoll({ status: 'CLOSED' });
     await createResponse({ poll, days: [dayFromToday(3), dayFromToday(4)] });
-    await prisma.poll.update({ where: { id: poll.id }, data: { retainedDayId: poll.days[0]!.id } });
+    await retainDays(poll, [dayFromToday(3)]);
     await prisma.emailOutbox.create({ data: { to: 'x@example.test', template: 'OWNER_DIGEST', pollId: poll.id } });
 
     await expect(deletePollAction(null, form({ publicId: poll.publicId }))).rejects.toThrow(TestRedirect);
@@ -233,14 +282,14 @@ describe('mes sondages', () => {
     const older = await createPoll({ owner, title: 'Ancien' });
     await prisma.poll.update({ where: { id: older.id }, data: { createdAt: new Date(Date.now() - 86_400_000) } });
     const recent = await createPoll({ owner, title: 'Récent', status: 'CLOSED' });
-    await prisma.poll.update({ where: { id: recent.id }, data: { retainedDayId: recent.days[1]!.id } });
+    await retainDays(recent, [dayFromToday(4)]);
     await createResponse({ poll: recent, days: [dayFromToday(3)] });
     await createResponse({ poll: recent, days: [dayFromToday(4)] });
     await createPoll({ title: 'Pas à moi' });
 
     const list = await listOwnerPolls(owner.id);
     expect(list.map((p) => p.title)).toEqual(['Récent', 'Ancien']);
-    expect(list[0]).toMatchObject({ respondents: 2, status: 'CLOSED', retainedDay: dayFromToday(4) });
-    expect(list[1]).toMatchObject({ respondents: 0, status: 'OPEN', retainedDay: null });
+    expect(list[0]).toMatchObject({ respondents: 2, status: 'CLOSED', retainedDays: [dayFromToday(4)] });
+    expect(list[1]).toMatchObject({ respondents: 0, status: 'OPEN', retainedDays: [] });
   });
 });

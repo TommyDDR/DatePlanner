@@ -132,6 +132,7 @@ export const createPollSchema = z.object({
   days: daysSchema,
   requireAccount: checkbox,
   notifyOwner: checkbox,
+  multipleRetainedDays: checkbox,
 });
 
 export const updatePollDetailsSchema = z.object({
@@ -147,17 +148,13 @@ export const setPollOptionsSchema = z.object({
   publicId: publicIdSchema,
   requireAccount: checkbox.optional(),
   notifyOwner: checkbox.optional(),
+  multipleRetainedDays: checkbox.optional(),
 });
 
-/** Un jour facultatif : un champ vide vaut « aucun ». */
-const optionalDay = z.preprocess((value) => (value === '' ? undefined : value), daySchema.optional());
+/** Les dates retenues, une par champ `retainedDays` ; aucune : clos sans date. */
+export const closePollSchema = z.object({ publicId: publicIdSchema, retainedDays: daysSchema });
 
-export const closePollSchema = z.object({ publicId: publicIdSchema, retainedDay: optionalDay });
-
-export const setRetainedDaySchema = z.object({
-  publicId: publicIdSchema,
-  retainedDay: z.preprocess((value) => (value === '' || value === undefined ? null : value), daySchema.nullable()),
-});
+export const setRetainedDaysSchema = closePollSchema;
 
 export const pollOnlySchema = z.object({ publicId: publicIdSchema });
 

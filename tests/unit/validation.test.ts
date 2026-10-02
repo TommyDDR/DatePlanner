@@ -4,7 +4,6 @@ import {
   createPollSchema,
   fieldErrors,
   readForm,
-  setRetainedDaySchema,
   submitResponseSchema,
 } from '@/lib/validation';
 
@@ -39,6 +38,7 @@ describe('createPollSchema', () => {
       description: '   ',
       days: ['2026-10-01'],
       notifyOwner: 'on',
+      multipleRetainedDays: 'on',
     });
     expect(parsed).toEqual({
       title: 'Dîner',
@@ -46,6 +46,7 @@ describe('createPollSchema', () => {
       days: ['2026-10-01'],
       requireAccount: false,
       notifyOwner: true,
+      multipleRetainedDays: true,
     });
   });
 
@@ -61,10 +62,23 @@ describe('createPollSchema', () => {
   });
 });
 
-describe('date retenue', () => {
-  it('un champ vide vaut aucune date', () => {
-    expect(closePollSchema.parse({ publicId: 'a'.repeat(22), retainedDay: '' }).retainedDay).toBeUndefined();
-    expect(setRetainedDaySchema.parse({ publicId: 'a'.repeat(22), retainedDay: '' }).retainedDay).toBeNull();
+describe('dates retenues', () => {
+  it('aucun champ vaut aucune date ; chaque champ, une date', () => {
+    const none = readForm(form([['publicId', 'a'.repeat(22)]]), ['retainedDays']);
+    expect(closePollSchema.parse(none).retainedDays).toEqual([]);
+    const two = readForm(
+      form([
+        ['publicId', 'a'.repeat(22)],
+        ['retainedDays', '2026-10-01'],
+        ['retainedDays', '2026-10-03'],
+      ]),
+      ['retainedDays'],
+    );
+    expect(closePollSchema.parse(two).retainedDays).toEqual(['2026-10-01', '2026-10-03']);
+  });
+
+  it('refuse un jour mal écrit', () => {
+    expect(closePollSchema.safeParse({ publicId: 'a'.repeat(22), retainedDays: [''] }).success).toBe(false);
   });
 });
 

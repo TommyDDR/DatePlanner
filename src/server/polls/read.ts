@@ -21,13 +21,15 @@ export type PollView = {
   status: 'OPEN' | 'CLOSED';
   requireAccount: boolean;
   notifyOwner: boolean;
+  /** Le créateur peut retenir plusieurs dates (décision 039). */
+  multipleRetainedDays: boolean;
   createdAt: Date;
   /** La version de ce qu'affiche la page (décision 034). */
   activityAt: Date;
   /** Jours proposés, `AAAA-MM-JJ`, dans l'ordre du calendrier. */
   days: string[];
-  /** La date retenue, `AAAA-MM-JJ`, seulement sur un sondage clos. */
-  retainedDay: string | null;
+  /** Les dates retenues, `AAAA-MM-JJ`, triées ; seulement sur un sondage clos. */
+  retainedDays: string[];
 };
 
 /**
@@ -61,7 +63,8 @@ export type MyPollRow = {
   respondents: number;
   createdAt: Date;
   status: 'OPEN' | 'CLOSED';
-  retainedDay: string | null;
+  /** Les dates retenues, triées. */
+  retainedDays: string[];
   /** Un changement que ce compte n'a pas encore vu (décision 034). */
   news: boolean;
 };
@@ -74,23 +77,21 @@ const MY_POLL_ROW = {
   title: true,
   createdAt: true,
   status: true,
-  retainedDayId: true,
   activityAt: true,
-  days: { select: { id: true, day: true } },
+  days: { where: { retained: { isNot: null } }, orderBy: { day: 'asc' }, select: { day: true } },
   _count: { select: { responses: true } },
 } satisfies Prisma.PollSelect;
 
 type MyPollRecord = Prisma.PollGetPayload<{ select: typeof MY_POLL_ROW }>;
 
 function toMyPollRow(poll: MyPollRecord, seenAt: Date | null): MyPollRow {
-  const retained = poll.retainedDayId ? poll.days.find((d) => d.id === poll.retainedDayId) : undefined;
   return {
     publicId: poll.publicId,
     title: poll.title,
     respondents: poll._count.responses,
     createdAt: poll.createdAt,
     status: poll.status,
-    retainedDay: retained ? dayFromDate(retained.day) : null,
+    retainedDays: poll.days.map((d) => dayFromDate(d.day)),
     news: hasNews(poll.activityAt, seenAt),
   };
 }
@@ -182,10 +183,9 @@ export async function getPollByPublicId(publicId: string): Promise<PollView | nu
   if (!isPublicId(publicId)) return null;
   const poll = await prisma.poll.findUnique({
     where: { publicId },
-    include: { days: { orderBy: { day: 'asc' }, select: { id: true, day: true } } },
+    include: { days: { orderBy: { day: 'asc' }, select: { day: true, retained: { select: { pollDayId: true } } } } },
   });
   if (!poll) return null;
-  const retained = poll.retainedDayId ? poll.days.find((d) => d.id === poll.retainedDayId) : undefined;
   return {
     id: poll.id,
     publicId: poll.publicId,
@@ -195,9 +195,10 @@ export async function getPollByPublicId(publicId: string): Promise<PollView | nu
     status: poll.status,
     requireAccount: poll.requireAccount,
     notifyOwner: poll.notifyOwner,
+    multipleRetainedDays: poll.multipleRetainedDays,
     createdAt: poll.createdAt,
     activityAt: poll.activityAt,
     days: poll.days.map((d) => dayFromDate(d.day)),
-    retainedDay: retained ? dayFromDate(retained.day) : null,
+    retainedDays: poll.days.filter((d) => d.retained).map((d) => dayFromDate(d.day)),
   };
 }

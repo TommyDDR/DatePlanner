@@ -78,6 +78,7 @@ export async function createPoll(
     status?: PollStatus;
     requireAccount?: boolean;
     notifyOwner?: boolean;
+    multipleRetainedDays?: boolean;
     title?: string;
     description?: string | null;
   } = {},
@@ -93,6 +94,7 @@ export async function createPoll(
       status: options.status ?? 'OPEN',
       requireAccount: options.requireAccount ?? false,
       notifyOwner: options.notifyOwner ?? true,
+      multipleRetainedDays: options.multipleRetainedDays ?? false,
       days: { create: days.map((day) => ({ day: dayDate(day) })) },
     },
     include: { days: { orderBy: { day: 'asc' } } },
@@ -118,4 +120,16 @@ export async function createResponse(options: {
       votes: { create: pollDays.map((pollDay) => ({ pollDayId: pollDay.id })) },
     },
   });
+}
+
+/** Retient ces jours d'un sondage CLOS, sans passer par la clôture. */
+export async function retainDays(poll: { id: string }, days: string[]) {
+  const pollDays = await prisma.pollDay.findMany({ where: { pollId: poll.id, day: { in: days.map(dayDate) } } });
+  await prisma.retainedDay.createMany({ data: pollDays.map((pollDay) => ({ pollId: poll.id, pollDayId: pollDay.id })) });
+}
+
+/** Les dates retenues d'un sondage, `AAAA-MM-JJ`, triées. */
+export async function retainedDaysOf(pollId: string): Promise<string[]> {
+  const rows = await prisma.retainedDay.findMany({ where: { pollId }, select: { pollDay: { select: { day: true } } } });
+  return rows.map((row) => row.pollDay.day.toISOString().slice(0, 10)).sort();
 }

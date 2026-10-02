@@ -62,6 +62,7 @@ describe('createPollAction', () => {
       status: 'OPEN',
       requireAccount: false,
       notifyOwner: true,
+      multipleRetainedDays: false,
     });
     expect(poll.days.map((d) => d.day.toISOString().slice(0, 10))).toEqual([dayFromToday(1), dayFromToday(3)]);
     expect(Math.abs(poll.ownerDigestCursor.getTime() - poll.createdAt.getTime())).toBeLessThan(5000);
@@ -71,6 +72,12 @@ describe('createPollAction', () => {
     await signIn();
     await submit({ title: 'Réunion', days: [dayFromToday(2)], requireAccount: 'on' });
     expect(await prisma.poll.findFirstOrThrow()).toMatchObject({ requireAccount: true, notifyOwner: false });
+  });
+
+  it('enregistre l’option « plusieurs dates retenues »', async () => {
+    await signIn();
+    await submit({ title: 'Stage', days: [dayFromToday(2)], multipleRetainedDays: 'on' });
+    expect(await prisma.poll.findFirstOrThrow()).toMatchObject({ multipleRetainedDays: true });
   });
 
   it('refuse un titre vide et garde la saisie', async () => {

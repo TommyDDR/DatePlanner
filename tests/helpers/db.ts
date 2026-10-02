@@ -7,6 +7,7 @@ import { prisma } from '@/server/db/client';
  * les clés étrangères, et les séquences repartent de zéro.
  */
 const TABLES = [
+  'retained_day',
   'vote',
   'response',
   'poll_day',

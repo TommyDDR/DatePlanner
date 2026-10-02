@@ -6,14 +6,19 @@ import { draftChanges, draftFromMarks, draftMarks, EMPTY_DRAFT, lockedDays, type
 const saved = (overrides: Partial<SavedDays> = {}): SavedDays => ({
   days: ['2026-10-01', '2026-10-02', '2026-10-03'],
   voted: new Set(['2026-10-02']),
-  retainedDay: null,
+  retainedDays: [],
   ...overrides,
 });
 
 describe('lockedDays', () => {
-  it('verrouille les jours votés et la date retenue', () => {
+  it('verrouille les jours votés et les dates retenues', () => {
     expect(lockedDays(saved())).toEqual(['2026-10-02']);
-    expect(lockedDays(saved({ retainedDay: '2026-10-03' }))).toEqual(['2026-10-02', '2026-10-03']);
+    expect(lockedDays(saved({ retainedDays: ['2026-10-03'] }))).toEqual(['2026-10-02', '2026-10-03']);
+    expect(lockedDays(saved({ retainedDays: ['2026-10-01', '2026-10-03'] }))).toEqual([
+      '2026-10-01',
+      '2026-10-02',
+      '2026-10-03',
+    ]);
   });
 });
 
@@ -69,7 +74,7 @@ describe('draftChanges', () => {
   });
 
   it('écarte sans bruit le retrait d’un jour devenu date retenue', () => {
-    const now = saved({ retainedDay: '2026-10-01' });
+    const now = saved({ retainedDays: ['2026-10-01'] });
     expect(draftChanges(now, { add: [], remove: ['2026-10-01'] })).toMatchObject({ remove: [], overtaken: [] });
   });
 

@@ -245,8 +245,8 @@ export type DatePickerProps = {
    * doigt, sur un appui long.
    */
   badges?: Readonly<Record<Day, DayBadge>>;
-  /** La date retenue d'un sondage clos : un aplat jade. */
-  retainedDay?: Day | null;
+  /** Les dates retenues d'un sondage clos : un aplat jade. */
+  retainedDays?: readonly Day[];
   /**
    * Consultation : aucun jour ne se choisit - ni clic, ni glissé, ni groupe -,
    * mais la navigation, le clavier et les infobulles restent.
@@ -259,6 +259,11 @@ export type DatePickerProps = {
   markedMonths?: readonly string[];
   /** Le jour sur lequel s'ouvre le calendrier, quand ni un choix ni `highlighted` ne le disent. */
   initialDay?: Day | null;
+  /**
+   * Le jour sur lequel s'ouvre le calendrier, AVANT les jours choisis : celui
+   * qu'un raccourci vient de prendre, quand d'autres l'étaient déjà.
+   */
+  openOn?: Day | null;
   /**
    * Mois montrés côte à côte : deux pour proposer des jours, ou pour
    * répondre à un sondage qui déborde d'un mois. À deux, les jours des mois
@@ -297,10 +302,11 @@ export function DatePicker({
   label,
   id,
   badges,
-  retainedDay = null,
+  retainedDays = [],
   readOnly = false,
   markedMonths = [],
   initialDay = null,
+  openOn = null,
   months: wanted = 1,
 }: DatePickerProps) {
   const multiple = mode === 'multiple';
@@ -339,6 +345,7 @@ export function DatePicker({
   const lockedSet = useMemo(() => new Set(locked), [locked]);
   const withdrawnSet = useMemo(() => new Set(withdrawn), [withdrawn]);
   const highlightedSet = useMemo(() => new Set(highlighted), [highlighted]);
+  const retainedSet = useMemo(() => new Set(retainedDays), [retainedDays]);
   const leadingSet = useMemo(
     () => new Set(badges ? mostVotedDays(Object.entries(badges).map(([day, badge]) => ({ day, count: badge.count }))) : []),
     [badges],
@@ -366,16 +373,18 @@ export function DatePicker({
   const months = narrow ? 1 : wanted;
   const [month, setMonth] = useState<Month>(() =>
     windowStart(
-      initialDay && Object.keys(marks).length === 0
-        ? monthOf(initialDay)
-        : initialMonth({ selected: Object.keys(marks), highlighted, min, today }),
+      openOn
+        ? monthOf(openOn)
+        : initialDay && Object.keys(marks).length === 0
+          ? monthOf(initialDay)
+          : initialMonth({ selected: Object.keys(marks), highlighted, min, today }),
       months,
       { first: firstBound, last: lastBound },
     ),
   );
   const [focusDay, setFocusDay] = useState<Day>(
     () =>
-      Object.keys(marks).sort()[0] ?? initialDay ?? highlighted[0] ?? (min && min > today ? min : today),
+      openOn ?? Object.keys(marks).sort()[0] ?? initialDay ?? highlighted[0] ?? (min && min > today ? min : today),
   );
   const [view, setView] = useState<View>('days');
   // Un mois de moins ou de plus (téléphone tourné, fenêtre redimensionnée) :
@@ -787,7 +796,7 @@ export function DatePicker({
     const matched = isHighlighted && rank === 1 && state?.tone === 'fill';
     const previewed = Boolean(inDrag?.has(day) && selectable);
     const between = Boolean(painted && day > painted.start && day < painted.end);
-    const retained = day === retainedDay;
+    const retained = retainedSet.has(day);
     const badge = badges?.[day];
     const tooltipId = badge ? `${tooltipBase}-${day}` : undefined;
     const peeked = Boolean(badge) && day === peek;

@@ -8,20 +8,21 @@ import { formatLongDay } from '@/lib/paris-day';
  * où le toucher d'un jour reste réservé à la sélection, et les lecteurs
  * d'écran, qui y lisent tout d'un trait. Les jours y vont du plus voté au
  * moins voté, le plus proche d'abord à égalité : la réponse à « quel jour ? »
- * est en haut. Les plus votés portent la pastille dorée du calendrier. La
+ * est en haut. Les plus votés portent la pastille dorée du calendrier. Une
  * date retenue y est mise en tête de sa ligne.
  */
 export function AvailabilityList({
   availability,
-  retainedDay,
+  retainedDays,
 }: {
   availability: readonly DayAvailability[];
-  retainedDay: string | null;
+  retainedDays: readonly string[];
 }) {
   if (availability.length === 0) {
     return <p className="text-sm text-[var(--color-text-muted)]">Personne n’a encore répondu.</p>;
   }
   const best = Math.max(...availability.map((day) => day.count));
+  const retained = new Set(retainedDays);
 
   return (
     <ul className="flex flex-col divide-y divide-[var(--color-rule)]" data-testid="disponibilites">
@@ -30,21 +31,21 @@ export function AvailabilityList({
           <p className="flex shrink-0 items-center gap-2 sm:w-64">
             <span
               className={`grid h-6 min-w-6 place-items-center rounded-full px-1.5 font-mono text-xs font-semibold ${
-                day === retainedDay
+                retained.has(day)
                   ? 'bg-[var(--color-retained)] text-[var(--color-on-retained)]'
                   : count === best
                     ? 'bg-[var(--color-leading)] text-[var(--color-on-leading)]'
                     : 'bg-[var(--color-vote)] text-[var(--color-on-vote)]'
               }`}
               aria-hidden="true"
-              data-badge={day === retainedDay ? 'retained' : count === best ? 'leading' : 'vote'}
+              data-badge={retained.has(day) ? 'retained' : count === best ? 'leading' : 'vote'}
             >
               {count}
             </span>
             <span className="font-medium first-letter:uppercase">{formatLongDay(day)}</span>
             <span className="sr-only">: {voteCountLabel(count)}</span>
-            {day === retainedDay ? <span className="label-tech !text-[var(--color-jade)]">date retenue</span> : null}
-            {count === best && day !== retainedDay && availability.length > 1 ? (
+            {retained.has(day) ? <span className="label-tech !text-[var(--color-jade)]">date retenue</span> : null}
+            {count === best && !retained.has(day) && availability.length > 1 ? (
               <span className="label-tech">le plus choisi</span>
             ) : null}
           </p>

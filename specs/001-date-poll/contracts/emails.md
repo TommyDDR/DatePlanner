@@ -8,7 +8,7 @@ nom, pseudo) est échappée. Contenu rendu **au moment de l'envoi** à partir de
 |---|---|---|---|---|---|
 | `PASSWORD_RESET` | `requestPasswordReset` sur un compte existant | titulaire | « Réinitialiser votre mot de passe DatePlanner » | lien `/reinitialisation?jeton=…` valable 1 h ; « si vous n'êtes pas à l'origine… » | FR-004 |
 | `OWNER_DIGEST` | nouvelle réponse d'un autre que le créateur sur un sondage à `notifyOwner` ; premier envoi 15 min après la première nouvelle réponse, puis au plus un par sondage toutes les 30 min | créateur | « {n} nouvelle(s) réponse(s) à « {titre} » » | noms des répondants arrivés depuis le résumé précédent et encore présents (créateur exclu), total des répondants, lien du sondage, lien de désactivation | FR-041 |
-| `RETAINED_DAY` | date retenue désignée ou changée | chaque répondant connecté (dédoublonné, créateur exclu) | « Date retenue pour « {titre} » : {jour en toutes lettres} » | date, lien du sondage | FR-042 |
+| `RETAINED_DAY` | dates retenues désignées ou changées, s'il en reste | chaque répondant connecté (dédoublonné, créateur exclu) | une date : « Date retenue pour « {titre} » : {jour en toutes lettres} » ; plusieurs : « {n} dates retenues pour « {titre} » » | toutes les dates retenues, lien du sondage ; annulé au départ si le sondage a été rouvert ou ses dates changées | FR-042 |
 | `INACTIVITY_WARNING` | compte sans activité depuis 3 ans | titulaire | « Votre compte DatePlanner sera supprimé le {date} » | se connecter avant cette date pour le conserver | Assumptions (conservation) |
 
 ## Règles

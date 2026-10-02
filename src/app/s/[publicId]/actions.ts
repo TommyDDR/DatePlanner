@@ -16,7 +16,7 @@ import {
   pseudonymSchema,
   readForm,
   setPollOptionsSchema,
-  setRetainedDaySchema,
+  setRetainedDaysSchema,
   submitResponseSchema,
   updatePollDetailsSchema,
 } from '@/lib/validation';
@@ -26,7 +26,7 @@ import { publish, type LiveEventKind } from '@/server/events/bus';
 import { changePollDays, deletePoll, deleteResponse, setPollOptions, updatePollDetails } from '@/server/polls/edit';
 import { markPollSeen, recordActivity } from '@/server/polls/news';
 import { submitResponse, withdrawResponse, type Respondent } from '@/server/polls/responses';
-import { closePoll, reopenPoll, setRetainedDay } from '@/server/polls/state';
+import { closePoll, reopenPoll, setRetainedDays } from '@/server/polls/state';
 import { consume, currentIp } from '@/server/ratelimit';
 
 /** Actions de la page d'un sondage (contracts/server-actions.md). */
@@ -140,6 +140,7 @@ export async function setPollOptionsAction(_previous: FormState, form: FormData)
       setPollOptions(ownerId, input.publicId, {
         requireAccount: input.requireAccount ?? false,
         notifyOwner: input.notifyOwner ?? false,
+        multipleRetainedDays: input.multipleRetainedDays ?? false,
       }),
     'poll',
     // Rien de ce que voit un répondant ne change : pas de « du nouveau ».
@@ -148,11 +149,23 @@ export async function setPollOptionsAction(_previous: FormState, form: FormData)
 }
 
 export async function closePollAction(_previous: FormState, form: FormData): Promise<FormState> {
-  return ownerAction(form, closePollSchema, (ownerId, input) => closePoll(ownerId, input.publicId, input.retainedDay ?? null), 'poll');
+  return ownerAction(
+    form,
+    closePollSchema,
+    (ownerId, input) => closePoll(ownerId, input.publicId, input.retainedDays),
+    'poll',
+    { arrays: ['retainedDays'] },
+  );
 }
 
-export async function setRetainedDayAction(_previous: FormState, form: FormData): Promise<FormState> {
-  return ownerAction(form, setRetainedDaySchema, (ownerId, input) => setRetainedDay(ownerId, input.publicId, input.retainedDay), 'poll');
+export async function setRetainedDaysAction(_previous: FormState, form: FormData): Promise<FormState> {
+  return ownerAction(
+    form,
+    setRetainedDaysSchema,
+    (ownerId, input) => setRetainedDays(ownerId, input.publicId, input.retainedDays),
+    'poll',
+    { arrays: ['retainedDays'] },
+  );
 }
 
 export async function reopenPollAction(_previous: FormState, form: FormData): Promise<FormState> {

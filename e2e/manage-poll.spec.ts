@@ -32,6 +32,12 @@ async function addAnonymousVote(publicId: string, pseudonym: string, day: string
 
 const panel = (page: Page) => page.getByRole('region', { name: 'Gérer le sondage' });
 
+/** « lundi 5 octobre 2026 » : un jour écrit comme sur les pages. */
+const longDay = (day: string) =>
+  new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
+    new Date(`${day}T12:00:00Z`),
+  );
+
 test('le créateur gère son sondage de bout en bout', async ({ page }) => {
   const email = await signUp(page, { name: 'Camille' });
   const first = await seedPoll(email, 'Pique-nique', [dayFromToday(3), dayFromToday(4)]);
@@ -128,6 +134,48 @@ test('le créateur gère son sondage de bout en bout', async ({ page }) => {
   await expect(page.getByTestId('mes-sondages').getByRole('link')).toHaveCount(1);
   await page.goto(url);
   await expect(page.getByRole('heading', { name: 'Introuvable' })).toBeVisible();
+});
+
+test('un sondage créé pour plusieurs dates retenues se clôt sur plusieurs jours', async ({ page }) => {
+  await signUp(page, { name: 'Camille' });
+  const [first, second, third] = [dayFromToday(3), dayFromToday(4), dayFromToday(5)];
+
+  // À la création, l'option permet de retenir plusieurs jours à la clôture.
+  await page.goto('/nouveau');
+  await page.getByLabel('Titre du sondage').fill('Stage de voile');
+  for (const day of [first, second, third]) await dayButton(page, day).click();
+  await page.getByLabel(/^Plusieurs dates retenues/).check();
+  await page.getByRole('button', { name: 'Créer le sondage' }).click();
+  await expect(panel(page)).toBeVisible();
+  await expect(panel(page).getByLabel('Plusieurs dates retenues')).toBeChecked();
+
+  // Chaque jour proposé s'ajoute aux dates retenues, d'un clic.
+  const retainedDay = (day: string) =>
+    panel(page).getByRole('grid', { name: /^Dates retenues,/ }).locator(`[data-day="${day}"]`);
+  await retainedDay(first).click();
+  await retainedDay(third).click();
+  await expect(retainedDay(first)).toHaveAttribute('data-match', '');
+  await expect(retainedDay(third)).toHaveAttribute('data-match', '');
+  await expect(retainedDay(second)).not.toHaveAttribute('data-match');
+  await expect(panel(page).getByText(/^Retenues :/)).toBeVisible();
+  await panel(page).getByRole('button', { name: 'Clore le sondage' }).click();
+
+  const banner = page.getByTestId('bandeau-clos');
+  await expect(banner).toContainText('Dates retenues');
+  await expect(dayButton(page, first).first()).toHaveAttribute('data-retained', '');
+  await expect(dayButton(page, third).first()).toHaveAttribute('data-retained', '');
+  await expect(dayButton(page, second).first()).not.toHaveAttribute('data-retained');
+
+  // Revenir à une seule date retenue n'est permis qu'une fois les autres rendues.
+  await panel(page).getByLabel('Plusieurs dates retenues').uncheck();
+  await panel(page).getByRole('button', { name: 'Enregistrer les options' }).click();
+  await expect(panel(page).getByText(/^Plusieurs dates sont retenues/)).toBeVisible();
+
+  // « Mes sondages » montre les deux dates.
+  await page.goto('/mes-sondages');
+  const row = page.getByTestId('mes-sondages').getByRole('link', { name: /Stage de voile/ });
+  for (const day of [first, third]) await expect(row).toContainText(longDay(day));
+  await expect(row).not.toContainText(longDay(second));
 });
 
 test('un vote arrivé pendant qu’on prépare un retrait verrouille le jour, et le créateur en est averti', async ({
