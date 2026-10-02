@@ -68,6 +68,7 @@ un test d'hygiène du dépôt le vérifie.
 |---|---|---|---|
 | `DATABASE_URL` | base PostgreSQL | `…/dateplanner` | `…/dateplanner` sur la VM |
 | `NEXT_PUBLIC_SITE_URL` | adresse publique (liens des emails, métadonnées) | `http://localhost:3000` | `https://dateplanner.laserit.fr` |
+| `EDITOR_NAME`, `EDITOR_ADDRESS` | éditeur et hébergeur des mentions légales | vides (repère « non renseigné ») | nom complet et adresse postale |
 | `APP_SECRET` | signatures : cookie Google, liens de désactivation | 32 octets aléatoires | idem, propre à la production |
 | `CRON_SECRET` | appel de la maintenance | valeur aléatoire | idem |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | connexion Google (§ 5) | client de développement | client de production |
@@ -81,7 +82,7 @@ Tirer un secret : `node -e "console.log(require('crypto').randomBytes(32).toStri
 
 Une variable `NEXT_PUBLIC_…` est gravée dans les pages au build : la changer
 demande un nouveau build, pas seulement un redémarrage. Un build de
-production refuse une adresse publique en `http`.
+production refuse une adresse publique en `http`, et un éditeur absent.
 
 ---
 

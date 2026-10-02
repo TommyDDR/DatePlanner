@@ -102,11 +102,15 @@ jobs:
 
       # Un build de production refuse une adresse publique en clair
       # (`src/lib/https-redirect.ts`) : il reçoit donc l'adresse réelle, les
-      # tests gardant la leur dans `.env.test`.
+      # tests gardant la leur dans `.env.test`. Il refuse aussi un éditeur
+      # absent (`src/config/identity.ts`) : il en reçoit un FACTICE, l'identité
+      # réelle ne vivant que dans le `.env` du serveur.
       - name: Build
         run: npm run build
         env:
           NEXT_PUBLIC_SITE_URL: https://dateplanner.laserit.fr
+          EDITOR_NAME: Éditeur de test
+          EDITOR_ADDRESS: 1 rue de l'Exemple 00000 Exempleville
 
       # Les parcours dans un VRAI navigateur, après les quatre contrôles : un
       # formulaire qui perd sa saisie ou un bouton qui ne monte pas ne se voit

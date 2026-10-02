@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { IDENTITY, SITE_DOMAIN } from '@/config/identity';
+import { IDENTITY, SITE_DOMAIN, readEditor } from '@/config/identity';
 import { LegalPage, LegalSection } from '@/components/legal-page';
 
 export const metadata: Metadata = {
@@ -10,44 +10,38 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-/** Mentions légales (FR-036), lues dans `IDENTITY`. */
+/** Mentions légales (FR-036), lues dans `IDENTITY` et `readEditor`. */
 export default function LegalNoticePage() {
-  const legal = IDENTITY.legal;
+  const editor = readEditor();
 
   return (
     <LegalPage label="Informations légales" title="Mentions légales">
       <LegalSection title="Éditeur">
         <p>
-          {legal.entityName}
+          Service édité à titre non professionnel par :
           <br />
-          {legal.address}
+          {editor.name}
           <br />
-          SIRET : {legal.siret}
-          <br />
-          Registre national des entreprises (RNE) : {legal.rneNumber}
+          {editor.address}
           <br />
           Contact :{' '}
           <a className="text-[var(--color-ember)] underline underline-offset-4" href={`mailto:${IDENTITY.email}`}>
             {IDENTITY.email}
-          </a>{' '}
-          - {IDENTITY.phone}
+          </a>
           <br />
-          Directeur de la publication : {legal.publicationDirector}
+          Directeur de la publication : {editor.name}
         </p>
       </LegalSection>
 
       <LegalSection title="Hébergement">
-        {/* Auto-hébergé : l'éditeur tient aussi le rôle d'hébergeur, d'où le
-            téléphone répété, que la LCEN exige de l'hébergeur. */}
+        {/* Auto-hébergé : l'éditeur tient aussi le rôle d'hébergeur. */}
         <p>
           Service auto-hébergé : les serveurs sont détenus et exploités par l’éditeur.
           <br />
-          {legal.hostingProvider}
-          <br />
-          Téléphone : {IDENTITY.phone}
+          {editor.name}, {editor.address}
         </p>
         <p className="mt-3">
-          Le nom de domaine {SITE_DOMAIN} est enregistré auprès d’{legal.registrar} SAS, 2 rue Kellermann, 59100
+          Le nom de domaine {SITE_DOMAIN} est enregistré auprès d’{IDENTITY.legal.registrar} SAS, 2 rue Kellermann, 59100
           Roubaix, France, qui n’héberge pas le service.
         </p>
       </LegalSection>

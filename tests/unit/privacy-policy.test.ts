@@ -8,7 +8,7 @@ import { THEME_STORAGE_KEY } from '@/lib/theme';
 import { GOOGLE_HANDSHAKE_COOKIE } from '@/server/auth/google-handshake';
 import PrivacyPage from '@/app/confidentialite/page';
 import LegalNoticePage from '@/app/mentions-legales/page';
-import { IDENTITY } from '@/config/identity';
+import { EDITOR_ENV, IDENTITY, readEditor } from '@/config/identity';
 
 /**
  * La politique de confidentialité est un texte publié : elle engage (FR-036).
@@ -95,17 +95,35 @@ describe('politique de confidentialité', () => {
 });
 
 describe('mentions légales', () => {
-  it('identifient l’éditeur et l’hébergeur', () => {
+  const name = 'Jeanne Exemple';
+  const address = '1 rue de l’Exemple 00000 Exempleville';
+
+  it('identifient l’éditeur et l’hébergeur à partir de l’environnement', () => {
+    vi.stubEnv(EDITOR_ENV.name, `  ${name} `);
+    vi.stubEnv(EDITOR_ENV.address, address);
     const page = text(LegalNoticePage);
-    for (const value of [
-      IDENTITY.legal.entityName,
-      IDENTITY.legal.siret,
-      IDENTITY.legal.address,
-      IDENTITY.legal.publicationDirector,
-      IDENTITY.phone,
-      IDENTITY.email,
-    ]) {
+    for (const value of [name, address, IDENTITY.email, 'à titre non professionnel']) {
       expect(page).toContain(value);
     }
+    expect(page).toContain(`Directeur de la publication : ${name}`);
+    expect(text(PrivacyPage)).toContain(`${name} - ${address}`);
+  });
+
+  it('n’affichent ni téléphone ni immatriculation', () => {
+    const page = text(LegalNoticePage);
+    expect(page).not.toMatch(/téléphone/i);
+    expect(page).not.toContain('SIRET');
+    expect(page).not.toContain('RNE');
+  });
+
+  it('signalent un éditeur absent hors production, et le refusent en production', () => {
+    vi.stubEnv(EDITOR_ENV.name, '');
+    vi.stubEnv(EDITOR_ENV.address, '');
+    expect(text(LegalNoticePage)).toContain('Éditeur non renseigné');
+    expect(() => readEditor({ NODE_ENV: 'production', [EDITOR_ENV.name]: name })).toThrow(EDITOR_ENV.address);
+    expect(readEditor({ NODE_ENV: 'production', [EDITOR_ENV.name]: name, [EDITOR_ENV.address]: address })).toEqual({
+      name,
+      address,
+    });
   });
 });
