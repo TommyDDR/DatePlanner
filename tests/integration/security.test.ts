@@ -56,9 +56,20 @@ describe('configuration de production', () => {
   async function productionConfig() {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://dateplanner.laserit.fr');
+    vi.stubEnv('EDITOR_NAME', 'Éditeur de test');
+    vi.stubEnv('EDITOR_ADDRESS', '1 rue de l’Exemple 00000 Exempleville');
     vi.resetModules();
     return (await import('../../next.config')).default;
   }
+
+  it('refuse de se charger sans l’identité de l’éditeur', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://dateplanner.laserit.fr');
+    vi.stubEnv('EDITOR_NAME', '');
+    vi.stubEnv('EDITOR_ADDRESS', '');
+    vi.resetModules();
+    await expect(import('../../next.config')).rejects.toThrow('EDITOR_NAME');
+  });
 
   it('renvoie tout accès en clair vers HTTPS, de façon permanente', async () => {
     const config = await productionConfig();
