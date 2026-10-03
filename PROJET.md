@@ -74,7 +74,7 @@ src/
   components/              calendrier, thème, formulaires, démonstration de l'accueil
 prisma/                    schéma et migration (contraintes écrites à la main)
 tests/unit, tests/integration, e2e/
-deploy/, scripts/          unités systemd, Traefik, journald ; sauvegarde et restauration
+deploy/, scripts/          unités systemd, Traefik, journald, snapshots ; sauvegarde et restauration
 ```
 
 ---

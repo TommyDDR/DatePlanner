@@ -152,6 +152,7 @@ e2e/                               # Playwright
 deploy/
 ├── dateplanner.service  dateplanner-proxy-distant.conf  journald-dateplanner.conf
 ├── dateplanner-maintenance.service/.timer  dateplanner-backup.service/.timer
+├── dateplanner-snapshot.sh        # sur l'hôte Proxmox : snapshot d'avant déploiement, deux gardés
 └── traefik/dateplanner.yml        # à copier dans /etc/traefik/dynamic/ de la VM proxy
 scripts/                           # backup.sh, restore.sh
 docs/decisions/                    # NNN-titre.md : Décision / Pourquoi
