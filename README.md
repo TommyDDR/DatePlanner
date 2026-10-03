@@ -42,6 +42,7 @@ npm run typecheck    # tsc
 npm run lint         # ESLint
 npm test             # Vitest : unitaires puis intégration (dateplanner_test)
 npm run e2e          # Playwright, sur un serveur de test dédié (port 3100)
+npm run e2e:perf     # SC-005 sur un build de production (port 3101)
 npm run build        # build de production
 npm run db:migrate   # nouvelle migration en développement
 npm run db:studio    # explorer la base

@@ -29,6 +29,10 @@ const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: './e2e',
+  // SC-005 se mesure sur un build de PRODUCTION : `next dev` rend la page
+  // quatre fois plus lentement, et la mesure ne dirait rien du service réel.
+  // Elle a sa configuration (`playwright.performance.config.ts`, décision 040).
+  testIgnore: 'performance.spec.ts',
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,

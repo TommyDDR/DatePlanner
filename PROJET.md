@@ -34,6 +34,7 @@ npm run lint
 npm test          # Vitest : unitaires + intégration contre dateplanner_test
 npm run build
 npm run e2e       # Playwright + axe
+npm run e2e:perf  # SC-005 sur un build de production
 ```
 
 L'intégration continue (`.github/workflows/ci.yml`) les rejoue sur chaque
@@ -203,6 +204,7 @@ Chaque exigence de `specs/001-date-poll/spec.md` et le fichier qui la vérifie.
 
 Critères de succès mesurés : SC-003 (`e2e/live-updates.spec.ts`), SC-004
 (`tests/integration/responses.test.ts`), SC-005
-(`tests/integration/performance.test.ts`, `e2e/performance.spec.ts`), SC-006
+(`tests/integration/performance.test.ts`, `e2e/performance.spec.ts` sur un
+build de production, décision 040), SC-006
 (`e2e/landing.spec.ts`), SC-007 (`e2e/theme.spec.ts`), SC-009
 (`e2e/accessibility.spec.ts`).

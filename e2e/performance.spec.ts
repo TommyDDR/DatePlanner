@@ -5,6 +5,9 @@ import { dayFromToday, db, resetDatabase } from './helpers';
 /**
  * SC-005 : un sondage de 60 jours et 100 répondants s'affiche complet en moins
  * de 2 s sur un réseau 4G.
+ *
+ * Joué sur un build de production (`npm run e2e:perf`, décision 040), pas
+ * avec les autres parcours.
  */
 
 test.beforeAll(resetDatabase);
@@ -46,7 +49,7 @@ test('un sondage de 60 jours et 100 répondants s’affiche complet en moins de 
   context,
 }) => {
   const publicId = await bigPoll();
-  // Une première visite compile la page (serveur de développement) : elle ne compte pas.
+  // Une première visite chauffe le serveur (connexions à la base, code chargé à la demande) : elle ne compte pas.
   await page.goto(`/s/${publicId}`);
 
   const cdp = await context.newCDPSession(page);

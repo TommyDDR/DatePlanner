@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "e2e:perf": "playwright test -c playwright.performance.config.ts",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio"
   },
