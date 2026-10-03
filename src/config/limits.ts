@@ -111,6 +111,14 @@ export const OUTBOX = {
   maxAttempts: 5,
 } as const;
 
+/** Listes de l'administration (décision 042). */
+export const ADMIN_LISTS = {
+  /** Lignes par page. */
+  pageSize: 20,
+  /** Une recherche plus longue est tronquée : elle ne trouverait rien de plus. */
+  searchMax: 100,
+} as const;
+
 /** Maintenance : au-delà de ce délai sans passage, la santé le signale. */
 export const MAINTENANCE = {
   lateAfterMinutes: 30,

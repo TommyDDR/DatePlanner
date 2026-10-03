@@ -14,6 +14,9 @@ dans `specs/001-date-poll/`.
   Google, gestion par le créateur, page d'accueil, thèmes), avec la page
   compte, les pages légales, la conservation automatique, les fichiers
   d'exploitation et la documentation.
+- **Administration** (décision 042) : compte déclaré dans `ADMIN_EMAILS`,
+  menu « Administration », liste des utilisateurs avec suppression d'un compte
+  et de ses sondages, liste complète des sondages paginée, triée et filtrée.
 - **Mise en production** (30 septembre 2026) : VM 102 créée et
   provisionnée, CNAME OVH, route Traefik et certificat Let's Encrypt, unités
   systemd installées, service en ligne sur `https://dateplanner.laserit.fr`,
@@ -49,6 +52,7 @@ src/
   proxy.ts                 nonce et CSP par requête, 404 des liens mal formés, cookie de session prolongé
   config/                  valeurs déclarées UNE fois
     identity.ts            nom, domaine ; éditeur et hébergeur lus dans .env
+    admin.ts               comptes administrateurs : ADMIN_EMAILS lu dans .env, adresse prouvée exigée
     limits.ts              seaux anti-flood, session, appareil, flux, bornes d'un sondage, résumé, file
     retention.ts           durées de conservation (lues par la maintenance ET la politique)
   lib/                     modules PURS, sans base ni horloge implicite
@@ -57,19 +61,22 @@ src/
     availability.ts        synthèse : votes et votants par jour
     digest.ts              contenu du résumé au créateur
     date-picker.ts         grille, plages, semaines, clavier du calendrier
-    paris-day.ts           jours `AAAA-MM-JJ`, « aujourd'hui » à Paris
+    paris-day.ts           jours `AAAA-MM-JJ`, « aujourd'hui » à Paris, minuit à Paris
+    admin-query.ts         recherche, filtres, tri et page des listes de l'administration, lus dans l'adresse
     validation.ts          schémas Zod des formulaires
     csp.ts, https-redirect.ts, safe-redirect.ts, signed-link.ts, theme.ts, …
   server/
     db/client.ts           Prisma (adaptateur pg)
     auth/                  sessions, mots de passe, service de connexion, Google, appareil, compte
     polls/                 création, lecture, réponses, édition, états, verrou du créateur
+    admin/                 accès (`AdminUser`), comptes (liste, suppression), tous les sondages
     events/bus.ts          LISTEN/NOTIFY vers les flux SSE
     notifications/         file d'envoi, transport, composeurs (réinitialisation, résumé, dates retenues, inactivité)
     ratelimit/             fenêtres glissantes en base
     maintenance/           passage de maintenance et conservation
   app/                     pages et routes (contracts/pages.md, contracts/http-api.md)
     s/[publicId]/          page d'un sondage, ses actions, ses sections (réponse, synthèse, créateur)
+    admin/                 écrans « Utilisateurs » et « Tous les sondages », suppression d'un compte
     api/                   flux, maintenance, santé, retour Google, désactivation du résumé
   components/              calendrier, thème, formulaires, démonstration de l'accueil
 prisma/                    schéma et migration (contraintes écrites à la main)
@@ -98,6 +105,9 @@ Sécurité (constitution I) :
   ensuite par `googleId`. Rattacher un compte jamais prouvé efface son mot de
   passe et ferme ses sessions.
 - Aucun secret versionné (`tests/unit/repository-hygiene.test.ts`).
+- L'administration n'existe que pour une adresse déclarée dans `ADMIN_EMAILS`
+  ET prouvée ; chaque page et chaque action la vérifie (`getAdminUser`),
+  jamais une mise en page commune. Pour tout autre visiteur : introuvable.
 
 Le serveur décide (constitution II) :
 
@@ -201,6 +211,9 @@ Chaque exigence de `specs/001-date-poll/spec.md` et le fichier qui la vérifie.
 | FR-042 | annonce des dates retenues | `tests/integration/notifications.test.ts` |
 | FR-043 | échec d'envoi sans effet sur l'action | `tests/integration/outbox.test.ts`, `tests/integration/notifications.test.ts` |
 | FR-045 | plusieurs dates retenues | `tests/unit/poll-state.test.ts`, `tests/integration/poll-owner.test.ts`, `tests/integration/create-poll.test.ts`, `tests/integration/schema-constraints.test.ts`, `e2e/manage-poll.spec.ts` |
+| FR-046 | administrateur déclaré et prouvé, liste des utilisateurs | `tests/unit/admin.test.ts`, `tests/integration/admin.test.ts`, `e2e/admin.spec.ts` |
+| FR-047 | suppression d'un compte par l'administrateur | `tests/integration/admin.test.ts`, `e2e/admin.spec.ts` |
+| FR-048 | tous les sondages : pages, tri, filtres | `tests/unit/admin.test.ts`, `tests/unit/paris-day.test.ts`, `tests/integration/admin.test.ts`, `e2e/admin.spec.ts` |
 
 Critères de succès mesurés : SC-003 (`e2e/live-updates.spec.ts`), SC-004
 (`tests/integration/responses.test.ts`), SC-005

@@ -44,6 +44,42 @@ export function dateFromDay(day: Day): Date {
   return new Date(`${day}T00:00:00.000Z`);
 }
 
+const PARIS_CLOCK = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Europe/Paris',
+  hourCycle: 'h23',
+  year: 'numeric',
+  month: 'numeric',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: 'numeric',
+  second: 'numeric',
+});
+
+/** L'avance de l'heure de Paris sur UTC à cet instant : une ou deux heures. */
+function parisOffsetMs(at: Date): number {
+  const parts = Object.fromEntries(PARIS_CLOCK.formatToParts(at).map((part) => [part.type, Number(part.value)]));
+  const asUtc = Date.UTC(parts.year!, parts.month! - 1, parts.day!, parts.hour!, parts.minute!, parts.second!);
+  return asUtc - Math.floor(at.getTime() / 1000) * 1000;
+}
+
+/**
+ * L'instant où ce jour commence à Paris : minuit, heure de Paris. Le
+ * changement d'heure se fait à 2 h ou 3 h, jamais à minuit : l'avance relue
+ * au premier essai est la bonne, le second essai ne fait que le confirmer.
+ */
+export function startOfParisDay(day: Day): Date {
+  const midnightUtc = dateFromDay(day).getTime();
+  const guess = midnightUtc - parisOffsetMs(new Date(midnightUtc));
+  return new Date(midnightUtc - parisOffsetMs(new Date(guess)));
+}
+
+/** Le jour `days` jours plus tôt ou plus tard. */
+export function addDays(day: Day, days: number): Day {
+  const date = dateFromDay(day);
+  date.setUTCDate(date.getUTCDate() + days);
+  return dayFromDate(date);
+}
+
 /**
  * Le même quantième `months` mois plus tôt ou plus tard, ramené au dernier
  * jour du mois quand il n'y existe pas : un an avant le 29 février 2028 est

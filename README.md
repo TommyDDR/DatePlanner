@@ -78,12 +78,20 @@ un test d'hygiène du dépôt le vérifie.
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` | pilote `smtp` seulement | vides | vides |
 | `RATE_LIMIT_DISABLED` | neutralise l'anti-flood, jamais en production | `1` si besoin | vide |
 | `RATE_LIMIT_ALLOWLIST` | adresses exemptées, séparées par des virgules | vide | selon besoin |
+| `ADMIN_EMAILS` | comptes administrateurs, séparés par des virgules (ci-dessous) | son adresse, si besoin | adresse de l'éditeur |
 
 Tirer un secret : `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`.
 
 Une variable `NEXT_PUBLIC_…` est gravée dans les pages au build : la changer
 demande un nouveau build, pas seulement un redémarrage. Un build de
 production refuse une adresse publique en `http`, et un éditeur absent.
+
+**Administrateur** (décision 042). Un compte dont l'adresse figure dans
+`ADMIN_EMAILS` a le menu « Administration » (utilisateurs, tous les
+sondages), une fois son adresse **prouvée** : se connecter avec Google sous
+cette adresse, ou, pour un compte à mot de passe, passer une fois par « Mot de
+passe oublié » et suivre le lien reçu. La variable n'est pas gravée au build :
+la changer demande un redémarrage, pas un nouveau build.
 
 ---
 
@@ -302,6 +310,9 @@ script modifié se réinstalle de la même façon.
   par un service tiers, toutes les 5 minutes, avec alerte par email : un
   service tombé ne peut pas prévenir qu'il est tombé. `/api/sante` répond 200
   seulement si le processus ET la base répondent.
+- **Administrateur** : `ADMIN_EMAILS` dans `/opt/dateplanner/.env`, puis
+  `sudo systemctl restart dateplanner` et une connexion qui prouve l'adresse
+  (§ 3).
 
 Les vérifications après mise en service sont dans
 `specs/001-date-poll/quickstart.md` § 5. Les mises à jour suivantes :

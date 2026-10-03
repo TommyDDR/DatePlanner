@@ -73,6 +73,15 @@ la revérification de chaque jour a lieu dans la transaction qui écrit les vote
 deux soumissions simultanées du même répondant n'en créent qu'une (contrainte d'unicité, puis
 mise à jour).
 
+## Administration
+
+Toutes exigent la session d'un administrateur (FR-046) ; sans elle, `NOT_FOUND` et rien
+n'est écrit.
+
+| Action | Entrée | Succès | Erreurs | FR |
+|---|---|---|---|---|
+| `deleteUser` | `userId` (UUID), `q?`, `page?` (la liste d'où vient l'envoi) | compte supprimé avec ses sondages et ses réponses (cascade de FR-006), emails en attente de ses sondages et à son adresse annulés ; `deleted` publié pour ses sondages, `responses` et nouvelle version pour ceux où il avait répondu ; redirection vers la même page de la liste, `supprime=1` | `NOT_FOUND` (compte inconnu, `userId` mal formé), `VALIDATION` (son propre compte, ou celui d'un autre administrateur) | FR-047 |
+
 ## Notifications
 
 | Action | Entrée | Succès | Erreurs | FR |

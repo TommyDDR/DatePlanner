@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Browser, type Locator, type Page } from '@playwright/test';
 import { randomBytes } from 'node:crypto';
-import { dayButton, dayFromToday, db, resetDatabase, signInAs } from './helpers';
+import { adminAccount, dayButton, dayFromToday, db, resetDatabase, signInAs } from './helpers';
 
 /**
  * Accessibilité (FR-034, SC-009) : chaque page passe axe dans les deux thèmes,
@@ -76,6 +76,7 @@ async function violations(page: Page, label: string): Promise<string[]> {
 test('chaque page passe axe, dans les deux thèmes', async ({ browser, baseURL }) => {
   test.setTimeout(120_000);
   const { ownerId, publicId } = await fixture();
+  const adminId = await adminAccount();
   const anonymous = [
     '/',
     '/connexion',
@@ -108,6 +109,15 @@ test('chaque page passe axe, dans les deux thèmes', async ({ browser, baseURL }
       failures.push(...(await violations(ownerPage, `${scheme} créateur ${path}`)));
     }
     await owner.close();
+
+    const admin = await newContext(browser, scheme);
+    await signInAs(admin, adminId, baseURL!);
+    const adminPage = await admin.newPage();
+    for (const path of ['/admin/utilisateurs', '/admin/sondages']) {
+      await adminPage.goto(path);
+      failures.push(...(await violations(adminPage, `${scheme} administrateur ${path}`)));
+    }
+    await admin.close();
   }
   expect(failures).toEqual([]);
 });

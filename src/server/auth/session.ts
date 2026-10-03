@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { cookies } from 'next/headers';
+import { isAdminAccount } from '@/config/admin';
 import { SESSION } from '@/config/limits';
 import { prisma } from '@/server/db/client';
 import {
@@ -28,6 +29,8 @@ export type SessionUser = {
   emailProvedAt: Date | null;
   /** Ouverture de CETTE session : une action sensible sans mot de passe exige qu'elle soit récente. */
   sessionCreatedAt: Date;
+  /** Adresse déclarée dans `ADMIN_EMAILS` et prouvée (décision 042). */
+  isAdmin: boolean;
 };
 
 export function hashToken(token: string): string {
@@ -120,6 +123,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     hasPassword: session.user.passwordHash !== null,
     emailProvedAt: session.user.emailProvedAt,
     sessionCreatedAt: session.createdAt,
+    isAdmin: isAdminAccount(session.user),
   };
 }
 
