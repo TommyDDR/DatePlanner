@@ -43,6 +43,7 @@ npm run lint           # 0 erreur, 0 avertissement
 npm test               # modules purs + intégration contre dateplanner_test
 npm run build          # 0 avertissement
 npm run e2e            # parcours Playwright (Chromium)
+npm run e2e:perf       # SC-005 sur un build de production
 ```
 
 Tous doivent être verts avant toute fusion (constitution, « Flux de travail »).

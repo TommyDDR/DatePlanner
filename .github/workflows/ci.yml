@@ -121,6 +121,12 @@ jobs:
       - name: Tests de bout en bout
         run: npm run e2e
 
+      # SC-005 se mesure sur un build de PRODUCTION (décision 040) : `next dev`
+      # rend la page quatre fois plus lentement, et la mesure y dépendait du
+      # runner, pas du code. La configuration refait son propre build.
+      - name: Performance (build de production)
+        run: npm run e2e:perf
+
       - name: Rapport Playwright
         if: failure()
         uses: actions/upload-artifact@v4

@@ -54,6 +54,7 @@ npm run lint
 npm test
 npm run build
 npm run e2e
+npm run e2e:perf
 ```
 
 ### 2.3 Fusion, tag, release
