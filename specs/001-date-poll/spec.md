@@ -43,6 +43,10 @@
 
 - Q: Le créateur peut-il retenir plusieurs jours à la clôture ? → A: Oui, si le sondage le permet : option « Plusieurs dates retenues », désactivée par défaut, choisie à la création et modifiable ensuite ; toutes les dates retenues sont mises en avant et annoncées ensemble.
 
+### Session 2026-10-03
+
+- Q: Le service a-t-il un administrateur ? → A: Oui : un compte déclaré par son adresse dans la configuration du serveur, hors dépôt, et prouvée. Il a un menu « Administration » vers deux écrans : la liste des utilisateurs, d'où il supprime un compte avec tous ses sondages, et la liste complète des sondages, paginée, triable et filtrable.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Créer un sondage et obtenir son lien de partage (Priority: P1)
@@ -325,6 +329,48 @@ en sombre ; basculer en clair, recharger : il reste clair.
 
 ---
 
+### User Story 8 - Administrer le service (Priority: P8)
+
+L'administrateur du service - un compte dont l'adresse est déclarée dans la
+configuration du serveur et prouvée - trouve dans l'en-tête un menu
+« Administration ». Il y consulte la liste des utilisateurs et supprime, après
+confirmation, un compte qui abuse du service avec tous ses sondages ; il y
+consulte aussi la liste complète des sondages, page par page, triée et filtrée
+selon ce qu'il cherche.
+
+**Why this priority**: l'inscription est ouverte ; sans administration, un
+abus ne se retire qu'à la main dans la base. Aucun parcours des utilisateurs
+n'en dépend.
+
+**Independent Test**: déclarer une adresse, se connecter avec Google sous cette
+adresse : le menu « Administration » apparaît ; supprimer un compte depuis la
+liste des utilisateurs : ses sondages répondent « sondage introuvable ».
+
+**Acceptance Scenarios**:
+
+1. **Given** le compte administrateur connecté, **When** il ouvre
+   « Utilisateurs », **Then** il voit chaque compte avec son nom, son adresse,
+   ses dates de création et de dernière activité et son nombre de sondages, les
+   plus récents d'abord, par pages, et peut les chercher par nom ou adresse.
+2. **Given** le compte administrateur, **When** il supprime un compte après
+   confirmation, **Then** ce compte, ses sondages, leurs réponses et les
+   réponses qu'il a données ailleurs disparaissent, et les liens de ses
+   sondages répondent « sondage introuvable ».
+3. **Given** le compte administrateur, **When** il ouvre « Tous les
+   sondages », **Then** il voit chaque sondage avec son titre, son créateur,
+   son état, ses dates de création et de clôture, son nombre de répondants et
+   ses jours proposés, par pages, et peut les trier (date de création, date de
+   clôture, dernière activité, titre, nombre de répondants) et les filtrer
+   (en cours ou clos, période, recherche).
+4. **Given** tout autre visiteur, connecté ou non, **When** il ouvre une
+   adresse de l'administration ou en appelle une action, **Then** il reçoit la
+   page « introuvable » et rien n'est modifié.
+5. **Given** un compte inscrit avec l'adresse de l'administrateur sans l'avoir
+   prouvée, **When** il se connecte, **Then** il n'a pas accès à
+   l'administration.
+
+---
+
 ### Edge Cases
 
 - Lien de sondage inexistant, mal formé ou supprimé : page « sondage
@@ -510,6 +556,25 @@ en sombre ; basculer en clair, recharger : il reste clair.
 - **FR-043**: Un échec d'envoi d'email NE DOIT ni bloquer ni annuler l'action
   qui l'a déclenché ; l'envoi est retenté.
 
+**Administration**
+
+- **FR-046**: Un compte DOIT être administrateur si et seulement si son adresse
+  est déclarée dans la configuration du serveur, hors dépôt, et prouvée
+  (identité Google vérifiée ou lien envoyé à l'adresse utilisé). Il a un menu
+  « Administration » vers la liste des utilisateurs et la liste complète des
+  sondages ; pour tout autre visiteur, ces écrans et leurs actions répondent
+  comme s'ils n'existaient pas. La liste des utilisateurs est paginée, les
+  plus récents d'abord, et cherchée par nom ou adresse.
+- **FR-047**: L'administrateur DOIT pouvoir supprimer un compte, après
+  confirmation, ce qui supprime ses sondages et ses réponses comme FR-006 ; ses
+  emails en attente sont annulés et les écrans ouverts mis à jour (FR-023). Ni
+  son propre compte ni celui d'un autre administrateur ne se suppriment ainsi.
+- **FR-048**: La liste complète des sondages DOIT être paginée, triable par
+  date de création, date de clôture, dernière activité, titre et nombre de
+  répondants, dans les deux sens, et filtrable par état (en cours, clos), par
+  période (de création, de clôture ou de jours proposés, bornes comprises) et
+  par recherche sur le titre, le nom ou l'adresse du créateur.
+
 **Apparence et page d'accueil**
 
 - **FR-029**: Le service DOIT proposer deux thèmes, clair et sombre ; à la
@@ -545,7 +610,8 @@ en sombre ; basculer en clair, recharger : il reste clair.
 
 - **Utilisateur**: personne titulaire d'un compte. Adresse email (unique), nom
   d'affichage, mot de passe (absent si le compte ne passe que par Google),
-  identité Google éventuelle, date de création.
+  identité Google éventuelle, date de création. Administrateur si son adresse,
+  prouvée, est déclarée dans la configuration du serveur (FR-046).
 - **Sondage**: titre, description facultative, créateur (un Utilisateur),
   identifiant public du lien de partage, date de création, état (ouvert ou
   clos), dates retenues facultatives (des jours proposés, seulement quand le
@@ -596,8 +662,9 @@ en sombre ; basculer en clair, recharger : il reste clair.
   inversement. Le service est hébergé sur la même infrastructure que laserit.fr,
   sous son propre sous-domaine.
 - **Inscription ouverte** : n'importe qui peut créer un compte. Chaque créateur
-  modère son propre sondage (FR-039, FR-040) ; il n'y a pas d'administration
-  du service ni de modération globale dans cette version.
+  modère son propre sondage (FR-039, FR-040) ; l'administrateur du service
+  modère les comptes (FR-046 à FR-048), sans rôle en base : son adresse est
+  déclarée dans la configuration du serveur.
 - **Jours entiers** : un sondage porte sur des jours, sans heures ni créneaux ;
   « aujourd'hui » s'entend à l'heure de Paris.
 - **Vote binaire** : un répondant coche les jours qui lui conviennent ; pas de

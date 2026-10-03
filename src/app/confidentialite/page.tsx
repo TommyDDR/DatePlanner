@@ -75,7 +75,10 @@ export default function PrivacyPage() {
         </ul>
         <p className="mt-3">
           Toute personne qui détient le lien d’un sondage en voit les réponses : pseudos ou noms d’affichage, et
-          jours cochés. Les adresses email, elles, ne sont montrées à personne.
+          jours cochés. Les adresses email, elles, ne sont montrées à aucun autre utilisateur : seul
+          l’administrateur du service, l’éditeur, les voit, avec la liste des comptes et des sondages, pour en
+          assurer la modération. Il peut supprimer un compte qui abuse du service, avec ses sondages et ses
+          réponses.
         </p>
       </LegalSection>
 

@@ -46,7 +46,8 @@ export function ConfirmSubmit({
   confirmLabel,
   question,
 }: {
-  label: string;
+  /** Un texte, ou un nœud qui le précise pour les lecteurs d'écran quand plusieurs boutons se suivent. */
+  label: React.ReactNode;
   confirmLabel: string;
   question: string;
 }) {

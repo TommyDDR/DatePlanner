@@ -67,6 +67,8 @@ export default defineConfig({
       // consentement. Les parcours s'arrêtent AVANT de partir chez Google.
       GOOGLE_CLIENT_ID: 'e2e.apps.googleusercontent.com',
       GOOGLE_CLIENT_SECRET: 'e2e-secret',
+      // Le compte administrateur des parcours : `ADMIN_EMAIL` d'`e2e/helpers.ts`.
+      ADMIN_EMAILS: 'admin-e2e@exemple.test',
     },
   },
 });

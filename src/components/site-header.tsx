@@ -1,13 +1,15 @@
 import Link from 'next/link';
 import { IDENTITY } from '@/config/identity';
 import { getSessionUser } from '@/server/auth/session';
+import { AdminMenu } from './admin-menu';
 import { BrandMark } from './brand-mark';
 import { MobileMenu } from './mobile-menu';
 
 /**
  * En-tête du site : la marque, et ce que la session permet.
  *
- * Connecté : « Mes sondages », « Nouveau sondage » et le compte ; sur
+ * Connecté : « Mes sondages », « Nouveau sondage », le menu « Administration »
+ * pour un administrateur (`AdminMenu`, décision 042) et le compte ; sur
  * téléphone, ils passent dans un menu (`MobileMenu`, décision 035). Sans
  * session : « Connexion ». La bascule de thème s'y ajoute (`ThemeToggle`) et
  * reste dans le bandeau à toutes les largeurs.
@@ -31,6 +33,7 @@ export async function SiteHeader({ themeToggle }: { themeToggle?: React.ReactNod
               <Link href="/nouveau" className="hidden rounded-full px-3 py-2 hover:bg-[var(--color-ink-soft)] sm:inline-flex">
                 Nouveau sondage
               </Link>
+              {user.isAdmin && <AdminMenu className="hidden sm:block" />}
               <Link
                 href="/compte"
                 className="hidden max-w-[10rem] truncate rounded-full px-3 py-2 hover:bg-[var(--color-ink-soft)] sm:inline-block"
@@ -45,7 +48,7 @@ export async function SiteHeader({ themeToggle }: { themeToggle?: React.ReactNod
             </Link>
           )}
           {themeToggle}
-          {user && <MobileMenu displayName={user.displayName} className="sm:hidden" />}
+          {user && <MobileMenu displayName={user.displayName} isAdmin={user.isAdmin} className="sm:hidden" />}
         </nav>
       </div>
     </header>

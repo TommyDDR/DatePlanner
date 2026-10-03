@@ -49,6 +49,19 @@ export async function signUp(page: Page, options: { name?: string; email?: strin
   return email;
 }
 
+/** L'adresse administrateur du serveur des parcours : `ADMIN_EMAILS` de `playwright.config.ts`. */
+export const ADMIN_EMAIL = 'admin-e2e@exemple.test';
+
+/** Le compte administrateur, adresse prouvée (décision 042) ; créé au premier appel. */
+export async function adminAccount(): Promise<string> {
+  const admin = await db.user.upsert({
+    where: { email: ADMIN_EMAIL },
+    update: {},
+    create: { email: ADMIN_EMAIL, displayName: 'Admin', emailProvedAt: new Date() },
+  });
+  return admin.id;
+}
+
 /** Le bouton d'un jour du calendrier. */
 export function dayButton(page: Page, day: string) {
   return page.locator(`[data-day="${day}"]`);

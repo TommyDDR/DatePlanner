@@ -189,6 +189,12 @@ export const pseudonymSchema = rule(normalizePseudonym, {
 export const disableOwnerDigestSchema = z.object({ token: z.string().min(10).max(500) });
 
 /* -------------------------------------------------------------------------- */
+/* Administration                                                              */
+/* -------------------------------------------------------------------------- */
+
+export const adminDeleteUserSchema = z.object({ userId: z.uuid('Compte introuvable.') });
+
+/* -------------------------------------------------------------------------- */
 /* Lecture d'un formulaire                                                     */
 /* -------------------------------------------------------------------------- */
 

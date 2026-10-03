@@ -1,48 +1,25 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef } from 'react';
+import { ADMIN_SCREENS } from '@/lib/admin-query';
+import { useDetailsMenu } from './use-details-menu';
 
 /**
- * Menu de l'en-tête sur téléphone : « Mes sondages », « Nouveau sondage » et
- * le compte, derrière un bouton à trois traits (décision 035).
- *
- * C'est un `<details>` : il s'ouvre et se ferme au toucher comme au clavier,
- * même sans JavaScript. Le script n'ajoute que ce qu'on attend d'un menu - se
- * refermer sur un lien suivi, sur Échap ou sur un toucher ailleurs. L'en-tête
- * reste monté d'une page à l'autre : sans cela, le menu resterait ouvert
- * par-dessus la page atteinte.
+ * Menu de l'en-tête sur téléphone : « Mes sondages », « Nouveau sondage », les
+ * écrans de l'administration pour un administrateur (décision 042) et le
+ * compte, derrière un bouton à trois traits (décision 035). Son comportement
+ * est celui de `useDetailsMenu`.
  */
-export function MobileMenu({ displayName, className = '' }: { displayName: string; className?: string }) {
-  const menu = useRef<HTMLDetailsElement>(null);
-
-  // Posé une fois pour toutes : l'état ouvert se lit sur l'élément, au moment
-  // même de la touche ou du toucher, sans attendre un rendu.
-  useEffect(() => {
-    const close = (focusToggle: boolean) => {
-      const details = menu.current;
-      if (!details?.open) return;
-      details.open = false;
-      if (focusToggle) details.querySelector('summary')?.focus();
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close(true);
-    };
-    const onPointerDown = (event: PointerEvent) => {
-      if (!menu.current?.contains(event.target as Node)) close(false);
-    };
-
-    document.addEventListener('keydown', onKeyDown);
-    document.addEventListener('pointerdown', onPointerDown);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      document.removeEventListener('pointerdown', onPointerDown);
-    };
-  }, []);
-
-  const closeOnFollow = () => {
-    if (menu.current) menu.current.open = false;
-  };
+export function MobileMenu({
+  displayName,
+  isAdmin = false,
+  className = '',
+}: {
+  displayName: string;
+  isAdmin?: boolean;
+  className?: string;
+}) {
+  const { menu, closeOnFollow } = useDetailsMenu();
 
   const item = 'flex min-h-11 items-center rounded-[10px] px-3 hover:bg-[var(--color-ink-soft)]';
 
@@ -59,6 +36,17 @@ export function MobileMenu({ displayName, className = '' }: { displayName: strin
         <Link href="/nouveau" onClick={closeOnFollow} className={item}>
           Nouveau sondage
         </Link>
+        {isAdmin ? (
+          <>
+            <div aria-hidden className="mx-3 my-1 border-t border-[var(--color-rule)]" />
+            <p className="label-tech px-3 pb-1 pt-2">Administration</p>
+            {ADMIN_SCREENS.map((screen) => (
+              <Link key={screen.key} href={screen.href} onClick={closeOnFollow} className={item}>
+                {screen.label}
+              </Link>
+            ))}
+          </>
+        ) : null}
         <div aria-hidden className="mx-3 my-1 border-t border-[var(--color-rule)]" />
         <Link href="/compte" onClick={closeOnFollow} className={item} aria-label={`Mon compte (${displayName})`}>
           <span className="truncate">{displayName}</span>

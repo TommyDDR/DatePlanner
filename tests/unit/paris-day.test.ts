@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addDays,
   addMonths,
   dateFromDay,
   dayFromDate,
   formatLongDay,
   isPast,
   isValidDay,
+  startOfParisDay,
   todayInParis,
 } from '@/lib/paris-day';
 
@@ -69,5 +71,33 @@ describe('addMonths', () => {
   it('ramène au dernier jour d’un mois plus court', () => {
     expect(addMonths('2026-03-31', -1)).toBe('2026-02-28');
     expect(addMonths('2028-02-29', -12)).toBe('2027-02-28');
+  });
+});
+
+describe('addDays', () => {
+  it('passe les fins de mois et d’année', () => {
+    expect(addDays('2026-10-31', 1)).toBe('2026-11-01');
+    expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
+    expect(addDays('2026-03-01', -1)).toBe('2026-02-28');
+  });
+});
+
+describe('startOfParisDay', () => {
+  it('est minuit à Paris, en heure d’hiver comme en heure d’été', () => {
+    expect(startOfParisDay('2026-01-15').toISOString()).toBe('2026-01-14T23:00:00.000Z');
+    expect(startOfParisDay('2026-07-15').toISOString()).toBe('2026-07-14T22:00:00.000Z');
+  });
+
+  it('tombe juste les jours de changement d’heure, qui se fait après minuit', () => {
+    expect(startOfParisDay('2026-03-29').toISOString()).toBe('2026-03-28T23:00:00.000Z');
+    expect(startOfParisDay('2026-03-30').toISOString()).toBe('2026-03-29T22:00:00.000Z');
+    expect(startOfParisDay('2026-10-25').toISOString()).toBe('2026-10-24T22:00:00.000Z');
+    expect(startOfParisDay('2026-10-26').toISOString()).toBe('2026-10-25T23:00:00.000Z');
+  });
+
+  it('commence le jour que `todayInParis` lit', () => {
+    const start = startOfParisDay('2026-10-25');
+    expect(todayInParis(start)).toBe('2026-10-25');
+    expect(todayInParis(new Date(start.getTime() - 1))).toBe('2026-10-24');
   });
 });

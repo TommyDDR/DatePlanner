@@ -4,7 +4,7 @@ Ce que chaque adresse montre, à qui, et ce qu'elle refuse. Les mutations décle
 ces pages sont décrites dans [server-actions.md](server-actions.md).
 
 Règles communes : HTTPS seul ; thème posé avant la première peinture ; en-tête avec marque,
-bascule de thème et accès au compte ; pied de page vers les pages légales. « Introuvable » =
+bascule de thème et accès au compte, et menu « Administration » pour un administrateur ; pied de page vers les pages légales. « Introuvable » =
 page 404 ordinaire, identique qu'un objet n'existe pas ou soit refusé.
 
 | Adresse | Accès | Indexée | Contenu | FR |
@@ -18,6 +18,9 @@ page 404 ordinaire, identique qu'un objet n'existe pas ou soit refusé.
 | `/mes-sondages` | session requise | non | deux listes, un lien vers chaque sondage : « Créés par moi », plus récents d'abord (titre, nombre de répondants, date de création, état, dates retenues - trois nommées, puis leur nombre), puis « Auxquels j'ai répondu », sondages d'autres comptes où le compte a répondu, sa réponse la plus récente d'abord (mêmes informations et nom du créateur) ; bordure orangée à gauche (et « du nouveau » pour les lecteurs d'écran) sur un sondage changé depuis la dernière visite, tenue à jour en direct par `/api/mes-sondages/flux` et au retour sur l'onglet | FR-024, FR-044 |
 | `/s/{publicId}` | quiconque a le lien | non | voir ci-dessous | FR-013–023, FR-025–028, FR-039–041, FR-044 |
 | `/compte` | session requise | non | nom d'affichage, adresse, méthode de connexion, déconnexion, suppression du compte | FR-006 |
+| `/admin` | administrateur (sinon introuvable) | non | redirige vers `/admin/utilisateurs` | FR-046 |
+| `/admin/utilisateurs?q=&page=` | administrateur (sinon introuvable) | non | comptes, plus récents d'abord, 20 par page ; recherche `q` sur le nom ou l'adresse ; par compte : nom, adresse, méthodes de connexion, adresse prouvée ou non, dates de création et de dernière activité, nombre de sondages (lien vers `/admin/sondages?q={adresse}`) et de réponses, bouton Supprimer (confirmation ; absent pour un administrateur) ; `supprime=1` : confirmation de la suppression | FR-046, FR-047 |
+| `/admin/sondages?q=&etat=&periode=&du=&au=&tri=&sens=&page=` | administrateur (sinon introuvable) | non | tous les sondages, 20 par page ; formulaire `GET` : recherche (titre, nom ou adresse du créateur), état (`tous`, `ouverts`, `clos`), période (`du`, `au`, jours `AAAA-MM-JJ` compris, portant sur `creation`, `cloture` ou `jours` proposés), tri (`creation`, `cloture`, `activite`, `titre`, `repondants`) et sens (`desc`, `asc`) ; une valeur inconnue retombe sur le défaut (création, décroissant) ; par sondage : titre (lien), créateur et son adresse, état et dates retenues, dates de création, de clôture et de dernière activité, répondants, jours proposés (nombre, premier et dernier) | FR-048 |
 | `/notifications/resume/desactiver?t=…` | tous (lien signé) | non | confirmation de la désactivation du résumé pour ce sondage ; jeton invalide : message neutre | FR-041 |
 | `/mentions-legales` | tous | oui | éditeur et hébergeur | FR-036 |
 | `/confidentialite` | tous | oui | données, finalités, durées, cookies, droits | FR-036 |
