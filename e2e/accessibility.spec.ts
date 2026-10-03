@@ -203,19 +203,30 @@ test('créer un sondage puis y répondre, au clavier seul, focus toujours visibl
 /* Animations réduites                                                         */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Les animations qui bougent pour de bon : en cours, et d'une durée
+ * perceptible ou sans fin. La règle globale ramène toute transition à
+ * 0,01 ms ; sur une machine chargée, une transition si brève reste « en
+ * cours » jusqu'à l'image suivante sans rien montrer - c'est sa durée qui dit
+ * si quelque chose bouge, pas son état.
+ */
 function runningAnimations(page: Page): Promise<string[]> {
   return page.evaluate(() =>
     document
       .getAnimations()
       .filter((animation) => animation.playState === 'running')
-      .map((animation) => {
+      .flatMap((animation) => {
+        const timing = animation.effect?.getComputedTiming();
+        const duration = Number(timing?.duration ?? 0);
+        if (duration <= 1 && timing?.iterations !== Infinity) return [];
         const target = (animation.effect as KeyframeEffect | null)?.target as Element | null;
-        return `${animation.constructor.name} ${target?.tagName.toLowerCase() ?? '?'}.${target?.className ?? ''}`;
+        const name = `${target?.tagName.toLowerCase() ?? '?'}.${target?.getAttribute('class') ?? ''}`;
+        return [`${animation.constructor.name} ${name} (${duration} ms)`];
       }),
   );
 }
 
-/** Laisse passer les transitions de 0,01 ms que la règle globale conserve. */
+/** Laisse démarrer ce qu'un rendu tardif déclencherait. */
 async function expectStill(page: Page, label: string): Promise<void> {
   await page.waitForTimeout(100);
   expect(await runningAnimations(page), label).toEqual([]);
