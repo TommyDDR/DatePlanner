@@ -78,11 +78,17 @@ Toujours AVANT de toucher au serveur : c'est le retour arrière si la version
 casse quelque chose. Il couvre le code et la base.
 
 ```bash
-ssh root@192.168.1.10 qm snapshot 102 avant_v0_1_1
+ssh root@192.168.1.10 dateplanner-snapshot v0.1.1
 ```
 
-Proxmox refuse le point dans un nom de snapshot : `avant_v0_1_1`, pas
-`avant-v0.1.1`.
+Le script (`deploy/dateplanner-snapshot.sh`, installé sur l'hôte par
+`README.md` § 6.6) prend le snapshot `avant_v0_1_1` - Proxmox refuse le point
+dans un nom -, puis supprime les snapshots `avant_*` plus anciens que les deux
+derniers : restent celui-ci et celui du déploiement précédent.
+
+En reprenant un déploiement raté, ne pas le relancer : le snapshot existe déjà
+et tient l'état d'avant la première tentative. Le script refuse d'ailleurs un
+nom déjà pris.
 
 ### 3.2 Mise à jour du code
 
@@ -124,14 +130,14 @@ vote de l'une apparaît dans l'autre en moins de cinq secondes), la connexion
 avec Google. Après une première mise en service, dérouler toutes les
 vérifications de `specs/001-date-poll/quickstart.md` § 5.
 
-### 3.4 Suppression du snapshot
+### 3.4 Suppression des snapshots
 
-Une fois la version jugée saine, quelques jours plus tard : un snapshot
-grossit à chaque écriture sur le disque.
+Rien à faire : le déploiement suivant supprime les snapshots au-delà des deux
+derniers (§ 3.1). Un snapshot grossit à chaque écriture sur le disque ; deux
+suffisent à revenir sur la version d'avant, ou sur celle d'encore avant.
 
 ```bash
 ssh root@192.168.1.10 qm listsnapshot 102
-ssh root@192.168.1.10 qm delsnapshot 102 avant_v0_1_1
 ```
 
 ---

@@ -276,7 +276,22 @@ de `dateplanner.laserit.fr` au premier accès et renvoie `http://` vers
 qu'envoie le visiteur : sans le premier, tout serait redirigé en boucle ; sans
 le second, l'anti-flood compterait tous les visiteurs comme un seul.
 
-### 6.6 Ce qui reste à l'exploitant
+### 6.6 Snapshots, sur l'hôte Proxmox
+
+Le snapshot d'avant déploiement (`deploy.md` § 3.1) est pris par
+`deploy/dateplanner-snapshot.sh`, installé sur l'hôte :
+
+```bash
+scp deploy/dateplanner-snapshot.sh root@192.168.1.10:/usr/local/sbin/dateplanner-snapshot
+ssh root@192.168.1.10 chmod 755 /usr/local/sbin/dateplanner-snapshot
+```
+
+Il nomme le snapshot d'après la version, puis ne garde que les deux plus
+récents snapshots `avant_*` de la VM 102 : celui du déploiement en cours et
+celui du précédent. Un snapshot nommé autrement n'est jamais supprimé. Un
+script modifié se réinstalle de la même façon.
+
+### 6.7 Ce qui reste à l'exploitant
 
 - **Sauvegardes hors de la VM** : `scripts/backup.sh` écrit dans
   `/var/backups/dateplanner`, sur le disque même de la base. Copier ces
