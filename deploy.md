@@ -122,7 +122,7 @@ sudo -u dateplanner -H git describe --tags          # v0.1.1
 systemctl is-active dateplanner                     # active
 sudo journalctl -u dateplanner -n 50 --no-pager     # « Ready », aucune erreur
 curl -s -o /dev/null -w "%{http_code}\n" https://dateplanner.laserit.fr/api/sante   # 200
-curl -s https://dateplanner.laserit.fr/api/sante    # pas de "maintenance":"late"
+curl -s https://dateplanner.laserit.fr/api/sante    # ni "maintenance":"late", ni "backup":"late"
 ```
 
 Puis, dans un navigateur : l'accueil, un sondage ouvert dans deux fenêtres (un
@@ -202,6 +202,18 @@ sudo journalctl -u dateplanner-maintenance -n 20 --no-pager
 
 Un `401` dans ce journal : `CRON_SECRET` vide ou changé sans redémarrer le
 service web.
+
+**`/api/sante` signale la sauvegarde en retard.** Aucune sauvegarde n'a abouti
+depuis vingt-six heures. Lire le journal du timer, puis relancer à la main :
+
+```bash
+systemctl list-timers dateplanner-backup.timer
+sudo journalctl -u dateplanner-backup -n 20 --no-pager
+sudo systemctl start dateplanner-backup.service
+```
+
+Juste après une première installation, c'est normal : rien n'a encore été
+consigné, la relance le fait.
 
 **Les emails ne partent pas.** Chaque envoi raté garde son erreur dans la
 file, trente jours :

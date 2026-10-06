@@ -77,8 +77,10 @@ l'action `disableOwnerDigest`. 200 dans tous les cas (pas d'oracle sur la validi
 ## `GET /api/sante`
 
 200 `{ "status": "ok" }` si le processus répond ET qu'une requête `SELECT 1` aboutit ;
-503 sinon. Ajoute `"maintenance": "late"` si le dernier passage date de plus de 30 min (sans
-changer le code 200). Aucun détail interne. Destiné à une surveillance extérieure.
+503 sinon. Ajoute `"maintenance": "late"` si le dernier passage date de plus de 30 min, et
+`"backup": "late"` si la dernière sauvegarde réussie (`backup_run`, consignée par
+`scripts/backup.sh`) date de plus de 26 h ou n'existe pas, sans changer le code 200. Aucun
+détail interne. Destiné à une surveillance extérieure.
 
 ## `GET /robots.txt`, `GET /sitemap.xml`
 

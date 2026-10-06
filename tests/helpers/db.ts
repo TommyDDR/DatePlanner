@@ -18,6 +18,7 @@ const TABLES = [
   'email_outbox',
   'rate_limit_hit',
   'maintenance_run',
+  'backup_run',
 ];
 
 export async function resetDatabase(): Promise<void> {

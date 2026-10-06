@@ -25,11 +25,11 @@ if [[ -z "$DUMP" || ! -f "$DUMP" ]]; then
 fi
 
 APP_DIR="${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+# Lu comme systemd le lit, jamais exécuté (`scripts/lib/env-file.sh`).
+# shellcheck source=lib/env-file.sh
+source "$APP_DIR/scripts/lib/env-file.sh"
 if [[ -f "$APP_DIR/.env" ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "$APP_DIR/.env"
-  set +a
+  load_env_file "$APP_DIR/.env"
 fi
 
 if [[ -z "${DATABASE_URL:-}" ]]; then

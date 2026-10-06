@@ -123,3 +123,13 @@ export const ADMIN_LISTS = {
 export const MAINTENANCE = {
   lateAfterMinutes: 30,
 } as const;
+
+/**
+ * Sauvegarde : au-delà de ce délai depuis la dernière réussite, la santé le
+ * signale. Le timer la lance chaque nuit vers 3 h, avec jusqu'à dix minutes de
+ * jeu : vingt-six heures laissent passer une nuit ordinaire, et rattrapent dès
+ * le lendemain matin une sauvegarde qui n'a pas abouti.
+ */
+export const BACKUP = {
+  lateAfterHours: 26,
+} as const;

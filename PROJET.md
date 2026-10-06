@@ -23,8 +23,14 @@ dans `specs/001-date-poll/`.
   sauvegarde nocturne éprouvée une fois. Restent : le client OAuth Google et
   le mot de passe d'application Gmail dans `/opt/dateplanner/.env`, la
   surveillance extérieure, la copie des sauvegardes hors de la VM.
-- **Restauration éprouvée** : pas encore. Date et résultat à consigner ici
-  après le premier essai de `scripts/restore.sh` sur une base vierge.
+- **Restauration éprouvée** : le 6 octobre 2026, au passage en conteneur
+  LXC. `scripts/restore.sh` a rejoué la dernière sauvegarde de la
+  VM 102 sur la base vierge du conteneur 202 : 7 sondages, 3 migrations,
+  `/api/sante` à 200 par Traefik.
+- **Sauvegardes du 1er au 6 octobre 2026 manquées** : `backup.sh` sourçait le
+  `.env`, où le mot de passe Gmail non quoté lançait une commande. Corrigé
+  (`scripts/lib/env-file.sh`), et `/api/sante` signale désormais une
+  sauvegarde en retard.
 
 ---
 
@@ -132,6 +138,16 @@ Données (constitution IV) :
   avertissement (`docs/decisions/029-avertissement-a-l-envoi.md`).
 - Un email n'est jamais envoyé dans une transaction métier : mis en file,
   composé au départ, retenté.
+- Une sauvegarde qui n'aboutit plus se voit : `scripts/backup.sh` consigne
+  chaque réussite dans `backup_run` (`scripts/lib/backup-recorded.sql`, en
+  UTC), et `/api/sante` ajoute `"backup": "late"` au-delà de
+  `BACKUP.lateAfterHours`. C'est l'absence qui se lit : script en erreur,
+  timer arrêté, disque plein. Un test rejoue la requête du script dans un
+  autre fuseau que UTC.
+- Les scripts d'exploitation LISENT le `.env` (`load_env_file`,
+  `scripts/lib/env-file.sh`) comme systemd le lit, ils ne le sourcent pas :
+  un mot de passe à espaces y a lancé une commande, et la sauvegarde s'est
+  arrêtée six nuits de suite pendant que le site tournait.
 
 Apparence :
 
