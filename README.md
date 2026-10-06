@@ -230,7 +230,12 @@ Puis dans le conteneur (`ssh admin@192.168.1.53`). Debian 13 fournit
 PostgreSQL 17 ; Node.js 22 vient de NodeSource, comme pour laserit.fr :
 
 ```bash
-sudo apt install -y curl git gnupg postgresql
+# Le modèle pose LANG=C : PostgreSQL créerait sa base en SQL_ASCII.
+echo LANG=C.UTF-8 | sudo tee /etc/default/locale
+sudo env LANG=C.UTF-8 apt install -y curl git gnupg postgresql
+sudo -u postgres psql -l                  # UTF8 et C.UTF-8, comme l'ancienne base
+# Le modèle installe postfix, que rien n'utilise ici.
+sudo apt purge -y postfix && sudo systemctl stop postfix
 curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/nodesource.gpg
 echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" \
   | sudo tee /etc/apt/sources.list.d/nodesource.list
