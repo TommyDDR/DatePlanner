@@ -297,3 +297,13 @@ model MaintenanceRun {
 
   @@map("maintenance_run")
 }
+
+/// Dernière sauvegarde RÉUSSIE, ligne unique. Posée hors du site, par
+/// `scripts/backup.sh` une fois l'archive écrite : une sauvegarde qui échoue
+/// n'écrit rien, et `/api/sante` voit la date vieillir.
+model BackupRun {
+  id        Int      @id @default(1)
+  lastRunAt DateTime @map("last_run_at")
+
+  @@map("backup_run")
+}

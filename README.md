@@ -287,6 +287,9 @@ systemctl list-timers 'dateplanner-*'
 - La maintenance passe toutes les dix minutes, en boucle locale ;
   `/api/sante` signale un retard au-delà de trente minutes.
 - La sauvegarde (`scripts/backup.sh`) passe chaque nuit vers 3 h, sous root.
+  Elle consigne chaque réussite, et `/api/sante` signale un retard au-delà de
+  vingt-six heures. Elle LIT le `.env` comme systemd le lit
+  (`scripts/lib/env-file.sh`) : une valeur à espaces n'y lance rien.
 
 ### 6.4 DNS chez OVH
 

@@ -17,12 +17,12 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 # Le `.env` du service porte déjà la connexion : la redéclarer dans l'unité
-# ferait deux vérités, dont l'une finirait périmée.
+# ferait deux vérités, dont l'une finirait périmée. Il est LU comme systemd le
+# lit, jamais exécuté (`scripts/lib/env-file.sh`).
+# shellcheck source=lib/env-file.sh
+source "$APP_DIR/scripts/lib/env-file.sh"
 if [[ -f "$APP_DIR/.env" ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "$APP_DIR/.env"
-  set +a
+  load_env_file "$APP_DIR/.env"
 fi
 
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/dateplanner}"
@@ -61,6 +61,18 @@ mv "$WORK/base.dump" "$ARCHIVE"
 chmod 600 "$ARCHIVE"
 
 echo "[$STAMP] Écrite : $ARCHIVE ($(du -h "$ARCHIVE" | cut -f1))"
+
+# La réussite est consignée dans la base (`backup_run`) : `/api/sante` dit
+# `"backup": "late"` quand elle date. Une sauvegarde qui échoue ne consigne
+# rien, quelle qu'en soit la raison - script en erreur, timer arrêté, disque
+# plein -, et c'est l'absence qui se voit (`scripts/lib/backup-recorded.sql`).
+# Une écriture qui échoue ne défait pas l'archive, déjà en place : elle le dit,
+# et la santé signalera une sauvegarde manquante plutôt que de la taire.
+if psql --no-psqlrc --quiet --set=ON_ERROR_STOP=1 --file="$APP_DIR/scripts/lib/backup-recorded.sql" >/dev/null; then
+  echo "[$STAMP] Consignée pour /api/sante."
+else
+  echo "[$STAMP] Archive écrite, mais la réussite n'a pas pu être consignée dans la base." >&2
+fi
 
 # Rotation. `ls -t` trie du plus récent au plus ancien ; on supprime la queue.
 mapfile -t OLD < <(ls -t "$BACKUP_DIR"/dateplanner-*.dump 2>/dev/null | tail -n "+$((BACKUP_KEEP + 1))")

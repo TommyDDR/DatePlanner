@@ -4,3 +4,5 @@
 deploy/** text eol=lf
 scripts/*.sh text eol=lf
 scripts/lib/*.mjs text eol=lf
+scripts/lib/*.sh text eol=lf
+scripts/lib/*.sql text eol=lf
