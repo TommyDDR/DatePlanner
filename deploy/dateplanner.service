@@ -5,8 +5,8 @@
 #   sudo systemctl daemon-reload
 #   sudo systemctl enable --now dateplanner
 #
-# Le proxy Traefik est sur une AUTRE machine (VM proxy, deploy/traefik/) :
-# ajouter le complément deploy/dateplanner-proxy-distant.conf.
+# Le proxy Traefik est sur une AUTRE machine (conteneur proxy,
+# deploy/traefik/) : ajouter le complément deploy/dateplanner-proxy-distant.conf.
 
 [Unit]
 Description=DatePlanner - sondages de dates (Next.js)

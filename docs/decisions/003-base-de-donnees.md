@@ -4,7 +4,7 @@ _Source : research.md, R3._
 
 ## Décision
 
-PostgreSQL 17 local à la VM, base `dateplanner`, rôle applicatif sans droit de création de base ; Prisma 7, migrations versionnées, `prisma migrate deploy` au déploiement. Les jours sont des colonnes `DATE`, jamais des horodatages.
+PostgreSQL 17 local au conteneur, base `dateplanner`, rôle applicatif sans droit de création de base ; Prisma 7, migrations versionnées, `prisma migrate deploy` au déploiement. Les jours sont des colonnes `DATE`, jamais des horodatages.
 
 ## Pourquoi
 
