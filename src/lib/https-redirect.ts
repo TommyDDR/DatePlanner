@@ -1,7 +1,7 @@
 /**
  * En production, le site ne se sert qu'en HTTPS.
  *
- * Le proxy (Traefik, sur la VM proxy) renvoie déjà son port 80 sur le 443,
+ * Le proxy (Traefik, conteneur proxy) renvoie déjà son port 80 sur le 443,
  * mais rien n'empêche d'atteindre Next EN CLAIR : le port 3000 joint par un
  * autre chemin, un proxy mal réglé, une adresse `http://` recopiée d'un ancien
  * email. La page s'afficherait alors, sans cookie de session - il est `Secure`

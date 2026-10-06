@@ -21,7 +21,7 @@ export const RETENTION = {
 } as const;
 
 /**
- * Durées du serveur d'entrée, la VM proxy partagée avec laserit.fr.
+ * Durées du serveur d'entrée, le conteneur proxy partagé avec laserit.fr.
  *
  * Ce dépôt ne les applique pas : la rotation du journal de Traefik et CrowdSec
  * sont réglés par les fichiers `deploy/` de laserit.fr, qui les vérifient. La

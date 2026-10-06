@@ -35,8 +35,8 @@ EnvironmentFile=/opt/dateplanner/.env
 # redémarrage du service web.
 #
 # Le secret est développé dans la ligne de commande de curl, donc lisible dans
-# `ps` par un utilisateur local : la VM n'a pas d'autre compte que celui du
-# service et celui de l'administrateur.
+# `ps` par un utilisateur local : le conteneur n'a pas d'autre compte que
+# celui du service et celui de l'administrateur.
 ExecStart=/usr/bin/curl -fsS -o /dev/null --retry 3 --retry-delay 10 \
     -X POST -H "Authorization: Bearer ${CRON_SECRET}" \
     http://127.0.0.1:3000/api/maintenance

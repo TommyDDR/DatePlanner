@@ -4,7 +4,7 @@ _Source : exploitation après la version 0.6.0._
 
 ## Décision
 
-Le snapshot d'avant déploiement est pris par `deploy/dateplanner-snapshot.sh`, installé sur l'hôte Proxmox en `/usr/local/sbin/dateplanner-snapshot` et appelé par `ssh root@192.168.1.10 dateplanner-snapshot vX.Y.Z`. Le script prend `avant_vX_Y_Z`, puis supprime les snapshots `avant_*` de la VM 102 au-delà des deux plus récents, classés par date de prise. Il ne supprime rien si la prise échoue, et ne touche jamais un snapshot nommé autrement. `SNAPSHOT_KEEP` change le nombre conservé.
+Le snapshot d'avant déploiement est pris par `deploy/dateplanner-snapshot.sh`, installé sur l'hôte Proxmox en `/usr/local/sbin/dateplanner-snapshot` et appelé par `ssh root@192.168.1.10 dateplanner-snapshot vX.Y.Z`. Le script prend `avant_vX_Y_Z`, puis supprime les snapshots `avant_*` du conteneur 202 au-delà des deux plus récents, classés par date de prise. Il ne supprime rien si la prise échoue, et ne touche jamais un snapshot nommé autrement. `SNAPSHOT_KEEP` change le nombre conservé.
 
 ## Pourquoi
 

@@ -67,7 +67,7 @@ un test d'hygiène du dépôt le vérifie.
 
 | Variable | Rôle | Développement | Production |
 |---|---|---|---|
-| `DATABASE_URL` | base PostgreSQL | `…/dateplanner` | `…/dateplanner` sur la VM |
+| `DATABASE_URL` | base PostgreSQL | `…/dateplanner` | `…/dateplanner` dans le conteneur |
 | `NEXT_PUBLIC_SITE_URL` | adresse publique (liens des emails, métadonnées) | `http://localhost:3000` | `https://dateplanner.laserit.fr` |
 | `EDITOR_NAME`, `EDITOR_ADDRESS` | éditeur et hébergeur des mentions légales | vides (repère « non renseigné ») | nom complet et adresse postale |
 | `APP_SECRET` | signatures : cookie Google, liens de désactivation | 32 octets aléatoires | idem, propre à la production |
@@ -150,65 +150,97 @@ qui l'aurait créé au nom d'autrui en perd l'accès.
 
 ## 6. Mise en production - première installation
 
-La production est auto-hébergée sur l'hyperviseur Proxmox de laserit.fr. La
-VM proxy, déjà en place, reçoit seule les ports 80 et 443 et termine le
-HTTPS ; DatePlanner a sa propre VM.
+La production est auto-hébergée sur l'hyperviseur Proxmox de laserit.fr, où
+chaque service a son conteneur LXC (décision 043). Le conteneur proxy, déjà
+en place, reçoit seul les ports 80 et 443 et termine le HTTPS ; DatePlanner a
+son propre conteneur.
 
 ```
-internet ── box (80, 443) ── VM 101 proxy : Traefik + CrowdSec ── VM 102 dateplanner : Next :3000 + PostgreSQL
+internet ── box (80, 443) ── CT 201 proxy : Traefik + CrowdSec ── CT 202 dateplanner : Next :3000 + PostgreSQL
 ```
 
 | Machine | Adresse | Rôle |
 |---|---|---|
-| Hôte Proxmox | `192.168.1.10` | snapshots des VM |
-| VM 101 `proxy` | `192.168.1.51` | HTTPS, certificats, CrowdSec |
-| VM 102 `dateplanner` | `192.168.1.53` | code dans `/opt/dateplanner`, service `dateplanner`, compte `dateplanner` |
+| Hôte Proxmox | `192.168.1.10` | snapshots des conteneurs |
+| CT 201 `proxy` | `192.168.1.51` | HTTPS, certificats, CrowdSec |
+| CT 202 `dateplanner` | `192.168.1.53` | code dans `/opt/dateplanner`, service `dateplanner`, compte `dateplanner` |
 
-### 6.1 La VM
+### 6.1 Le conteneur
 
-Debian 13, 2 vCPU, 2 Go de mémoire, 20 Go de disque, créée depuis l'image
-cloud de Debian comme les VM 100 et 101. Le compte `admin` et sa clé SSH
-viennent du fichier cloud-init du proxy, recopié sous un autre nom d'hôte.
-L'adresse `192.168.1.53` est FIXÉE par cloud-init, pas par un bail de la box :
-la réserver sur la box, ou la tenir hors de sa plage DHCP, évite qu'un autre
-appareil la reçoive.
+Conteneur LXC non privilégié, Debian 13, 2 cœurs, 2 Go de mémoire, 20 Go de
+disque, créé depuis le modèle Debian 13 de Proxmox. Il reprend la MAC de
+l'ancienne VM 102. L'adresse `192.168.1.53` est FIXÉE dans la configuration
+du conteneur, pas par un bail de la box : la réserver sur la box, ou la tenir
+hors de sa plage DHCP, évite qu'un autre appareil la reçoive.
 
 Sur l'hôte Proxmox (`ssh root@192.168.1.10`) :
 
 ```bash
-cd /var/lib/vz/snippets
-sed -e 's/^hostname: proxy$/hostname: dateplanner/' -e 's/^fqdn: proxy.lan$/fqdn: dateplanner.lan/' \
-  proxy-user.yaml > dateplanner-user.yaml && chmod 600 dateplanner-user.yaml
+pveam update && pveam available --section system | grep debian-13
+pveam download local debian-13-standard_<version>_amd64.tar.zst
 
-qm create 102 --name dateplanner --memory 2048 --balloon 0 --cores 2 --cpu host --machine q35 --ostype l26 \
-  --net0 virtio=BC:24:11:00:AA:0C,bridge=vmbr0 --scsihw virtio-scsi-single --agent enabled=1 \
-  --serial0 socket --vga serial0 --onboot 1 --startup order=3 --tags dateplanner
-qm set 102 --scsi0 local-lvm:0,import-from=/var/lib/vz/template/iso/debian-13-genericcloud-amd64.qcow2,discard=on,iothread=1,ssd=1
-qm resize 102 scsi0 20G
-qm set 102 --ide2 local-lvm:cloudinit,media=cdrom --boot order=scsi0
-qm set 102 --cicustom user=local:snippets/dateplanner-user.yaml \
-  --ipconfig0 ip=192.168.1.53/24,gw=192.168.1.254 --nameserver 192.168.1.254 --searchdomain lan
-qm start 102
+pct create 202 local:vztmpl/debian-13-standard_<version>_amd64.tar.zst \
+  --hostname dateplanner --unprivileged 1 --features nesting=1 \
+  --cores 2 --memory 2048 --swap 512 --rootfs local-lvm:20 \
+  --net0 name=eth0,bridge=vmbr0,hwaddr=BC:24:11:00:AA:0C,ip=192.168.1.53/24,gw=192.168.1.254,firewall=1 \
+  --nameserver 192.168.1.254 --searchdomain lan \
+  --timezone host --onboot 1 --startup order=3 --tags dateplanner \
+  --ssh-public-keys /root/.ssh/authorized_keys
+pct start 202
+
+# Le compte admin (sudo sans mot de passe, la clé de root), puis SSH fermé à root.
+pct exec 202 -- bash -c '
+  apt update && apt install -y sudo
+  useradd --create-home --shell /bin/bash --groups sudo admin
+  install -d -m 700 -o admin -g admin /home/admin/.ssh
+  install -m 600 -o admin -g admin /root/.ssh/authorized_keys /home/admin/.ssh/
+  echo "admin ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/admin && chmod 440 /etc/sudoers.d/admin
+  printf "PermitRootLogin no\nPasswordAuthentication no\n" > /etc/ssh/sshd_config.d/00-durcissement.conf
+  systemctl restart ssh'
 ```
 
-Puis sur la VM (`ssh admin@192.168.1.53`). Debian 13 fournit PostgreSQL 17 ;
-Node.js 22 vient de NodeSource, comme sur la VM de laserit.fr :
+- `nesting=1` n'est pas optionnel : systemd de Debian 13 et le cloisonnement
+  de `deploy/dateplanner.service` (`ProtectSystem`, `PrivateTmp`) créent des
+  espaces de noms, et sans lui le service tombe en `226/NAMESPACE`.
+- `--swap` puise dans le fichier d'échange de l'hôte : un conteneur n'en a
+  pas à lui. L'horloge est celle de l'hôte, et `--timezone host` donne son
+  fuseau au timer de sauvegarde de 3 h.
+
+Le pare-feu est celui de Proxmox, décrit sur l'hôte et hors de portée du
+conteneur : un root du conteneur ne pourrait pas l'ouvrir. Dans
+`/etc/pve/firewall/202.fw` :
+
+```
+[OPTIONS]
+enable: 1
+policy_in: DROP
+
+[RULES]
+IN ACCEPT -source 192.168.1.51 -p tcp -dport 3000
+IN ACCEPT -source 192.168.1.0/24 -p tcp -dport 22
+```
+
+Il ne s'applique que si le pare-feu du datacenter est activé (README de
+laserit.fr, § 9). Sans la règle du port 3000, Next serait joignable en clair
+depuis tout le réseau local : la seule porte d'entrée doit rester le proxy.
+Le vérifier d'un poste du réseau local, qui n'est pas le proxy :
+`curl http://192.168.1.53:3000/api/sante` doit échouer.
+
+Puis dans le conteneur (`ssh admin@192.168.1.53`). Debian 13 fournit
+PostgreSQL 17 ; Node.js 22 vient de NodeSource, comme pour laserit.fr :
 
 ```bash
-sudo apt install -y curl git ufw gnupg postgresql
+# Le modèle pose LANG=C : PostgreSQL créerait sa base en SQL_ASCII.
+echo LANG=C.UTF-8 | sudo tee /etc/default/locale
+sudo env LANG=C.UTF-8 apt install -y curl git gnupg postgresql
+sudo -u postgres psql -l                  # UTF8 et C.UTF-8, comme l'ancienne base
+# Le modèle installe postfix, que rien n'utilise ici.
+sudo apt purge -y postfix && sudo systemctl stop postfix
 curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/nodesource.gpg
 echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" \
   | sudo tee /etc/apt/sources.list.d/nodesource.list
 sudo apt update && sudo apt install -y nodejs
-
-# Pare-feu : SSH depuis le réseau local, le port 3000 depuis la VM proxy SEULE.
-sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp
-sudo ufw allow from 192.168.1.51 to any port 3000 proto tcp
-sudo ufw enable
 ```
-
-Sans la règle du port 3000, Next serait joignable en clair depuis tout le
-réseau local : la seule porte d'entrée doit rester le proxy.
 
 ### 6.2 Base, compte et code
 
@@ -226,7 +258,7 @@ sudoedit /opt/dateplanner/.env      # valeurs de production (§ 3), NODE_ENV=pro
 ```
 
 Le mot de passe de la base, `APP_SECRET` et `CRON_SECRET` se tirent au hasard
-sur la VM (commande du § 3) et ne s'écrivent que dans ce fichier.
+dans le conteneur (commande du § 3) et ne s'écrivent que dans ce fichier.
 
 Le premier déploiement d'une version suit ensuite `deploy.md` § 3 (checkout
 du tag, `npm ci`, `prisma migrate deploy`, build).
@@ -271,7 +303,7 @@ Vérifier, une fois la propagation faite :
 Resolve-DnsName dateplanner.laserit.fr     # <IP publique>, par le CNAME
 ```
 
-### 6.5 Traefik, sur la VM proxy
+### 6.5 Traefik, sur le conteneur proxy
 
 ```bash
 scp deploy/traefik/dateplanner.yml admin@192.168.1.51:/tmp/
@@ -295,13 +327,13 @@ ssh root@192.168.1.10 chmod 755 /usr/local/sbin/dateplanner-snapshot
 ```
 
 Il nomme le snapshot d'après la version, puis ne garde que les deux plus
-récents snapshots `avant_*` de la VM 102 : celui du déploiement en cours et
+récents snapshots `avant_*` du conteneur 202 : celui du déploiement en cours et
 celui du précédent. Un snapshot nommé autrement n'est jamais supprimé. Un
 script modifié se réinstalle de la même façon.
 
 ### 6.7 Ce qui reste à l'exploitant
 
-- **Sauvegardes hors de la VM** : `scripts/backup.sh` écrit dans
+- **Sauvegardes hors du conteneur** : `scripts/backup.sh` écrit dans
   `/var/backups/dateplanner`, sur le disque même de la base. Copier ces
   archives ailleurs, de façon planifiée, fait partie de l'installation ; puis
   éprouver une restauration complète avec `scripts/restore.sh` sur une base
