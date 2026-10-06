@@ -22,11 +22,11 @@ dans `specs/001-date-poll/`.
   systemd installées, service en ligne sur `https://dateplanner.laserit.fr`,
   sauvegarde nocturne éprouvée une fois. Restent : le client OAuth Google et
   le mot de passe d'application Gmail dans `/opt/dateplanner/.env`, la
-  surveillance extérieure, la copie des sauvegardes hors de la VM.
+  surveillance extérieure, la copie des sauvegardes hors du conteneur.
 - **Restauration éprouvée** : le 6 octobre 2026, au passage en conteneur
-  LXC. `scripts/restore.sh` a rejoué la dernière sauvegarde de la
-  VM 102 sur la base vierge du conteneur 202 : 7 sondages, 3 migrations,
-  `/api/sante` à 200 par Traefik.
+  LXC (décision 043). `scripts/restore.sh` a rejoué la dernière sauvegarde
+  de la VM 102 sur la base vierge du conteneur 202 : 7 sondages,
+  3 migrations, `/api/sante` à 200 par Traefik.
 - **Sauvegardes du 1er au 6 octobre 2026 manquées** : `backup.sh` sourçait le
   `.env`, où le mot de passe Gmail non quoté lançait une commande. Corrigé
   (`scripts/lib/env-file.sh`), et `/api/sante` signale désormais une

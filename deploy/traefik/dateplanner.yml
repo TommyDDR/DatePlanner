@@ -1,9 +1,11 @@
-# Traefik - DatePlanner (configuration dynamique, VM proxy 192.168.1.51).
+# Traefik - DatePlanner (configuration dynamique, conteneur proxy
+# 192.168.1.51).
 #
 # Installation : sudo cp deploy/traefik/dateplanner.yml /etc/traefik/dynamic/
 # Traefik relit le répertoire de lui-même (`watch`), sans redémarrage. Le
 # point d'entrée `websecure` et le résolveur `letsencrypt` sont ceux de
-# laserit.fr, déjà déclarés dans la configuration statique de la VM proxy.
+# laserit.fr, déjà déclarés dans la configuration statique du conteneur
+# proxy.
 #
 # DNS : `dateplanner` est un CNAME de `laserit.fr.` chez OVH ; le certificat
 # est obtenu pour ce nom au premier accès.
@@ -21,7 +23,7 @@ http:
     dateplanner:
       loadBalancer:
         servers:
-          # La VM 102 (adresse fixée par cloud-init). Next y écoute sur le
-          # réseau et son pare-feu n'ouvre le port 3000 qu'à la VM proxy :
+          # Le conteneur 202 (adresse fixe). Next y écoute sur le réseau, et
+          # le pare-feu de Proxmox n'ouvre son port 3000 qu'au proxy :
           # voir deploy/dateplanner-proxy-distant.conf.
           - url: "http://192.168.1.53:3000"

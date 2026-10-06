@@ -1,7 +1,7 @@
 # Déployer DatePlanner en production
 
 Marche à suivre pour publier une version et la mettre en ligne. La première
-installation du serveur (VM, base, unités systemd, DNS, Traefik) est décrite
+installation du serveur (conteneur, base, unités systemd, DNS, Traefik) est décrite
 dans `README.md` § 6 ; ce fichier ne couvre que la MISE À JOUR.
 
 ---
@@ -18,9 +18,9 @@ ne l'y a pas mis à la main.
 
 | Machine | Adresse | Accès | Rôle |
 |---|---|---|---|
-| Hôte Proxmox | `192.168.1.10` | `ssh root@…` | snapshots des VM |
-| VM 101 `proxy` | `192.168.1.51` | `ssh admin@…` | HTTPS : **non touchée** par un déploiement |
-| VM 102 `dateplanner` | `192.168.1.53` | `ssh admin@…` | code dans `/opt/dateplanner`, service `dateplanner`, compte `dateplanner` |
+| Hôte Proxmox | `192.168.1.10` | `ssh root@…` | snapshots des conteneurs |
+| CT 201 `proxy` | `192.168.1.51` | `ssh admin@…` | HTTPS : **non touché** par un déploiement |
+| CT 202 `dateplanner` | `192.168.1.53` | `ssh admin@…` | code dans `/opt/dateplanner`, service `dateplanner`, compte `dateplanner` |
 
 ---
 
@@ -72,7 +72,7 @@ gh release create v0.1.1 --verify-tag --generate-notes
 
 ## 3. Déployer une version
 
-### 3.1 Snapshot de la VM
+### 3.1 Snapshot du conteneur
 
 Toujours AVANT de toucher au serveur : c'est le retour arrière si la version
 casse quelque chose. Il couvre le code et la base.
@@ -92,7 +92,7 @@ nom déjà pris.
 
 ### 3.2 Mise à jour du code
 
-Sur la VM, toutes les commandes sous le compte du service :
+Dans le conteneur, toutes les commandes sous le compte du service :
 
 ```bash
 ssh admin@192.168.1.53
@@ -137,7 +137,7 @@ derniers (§ 3.1). Un snapshot grossit à chaque écriture sur le disque ; deux
 suffisent à revenir sur la version d'avant, ou sur celle d'encore avant.
 
 ```bash
-ssh root@192.168.1.10 qm listsnapshot 102
+ssh root@192.168.1.10 pct listsnapshot 202
 ```
 
 ---
@@ -171,8 +171,8 @@ le nouveau schéma peut casser. Restaurer le snapshot, depuis l'hôte :
 
 ```bash
 ssh root@192.168.1.10
-qm rollback 102 avant_v0_1_1
-qm start 102
+pct rollback 202 avant_v0_1_1
+pct start 202
 ```
 
 Le code et la base reviennent à l'instant du snapshot. **Tout ce qui a été

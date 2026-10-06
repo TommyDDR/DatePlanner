@@ -10,8 +10,8 @@ Description=Sauvegarde nocturne de DatePlanner
 OnCalendar=*-*-* 03:00:00
 # Machine éteinte à 3 h : la sauvegarde manquée part au démarrage suivant.
 Persistent=true
-# Quelques minutes de jeu : sur l'hyperviseur, les VM qui sauvegardent à la
-# même seconde se disputent le même disque.
+# Quelques minutes de jeu : sur l'hyperviseur, les conteneurs qui
+# sauvegardent à la même seconde se disputent le même disque.
 RandomizedDelaySec=10min
 
 [Install]
