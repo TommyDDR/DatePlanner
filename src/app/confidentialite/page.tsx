@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { IDENTITY, readEditor } from '@/config/identity';
 import { DEVICE, SESSION } from '@/config/limits';
-import { PROXY_RETENTION, RETENTION } from '@/config/retention';
+import { PROXY_RETENTION, RETENTION, SUPERVISION_RETENTION } from '@/config/retention';
 import { LegalPage, LegalSection } from '@/components/legal-page';
 import { duration, secondsInWords } from '@/lib/duration-words';
 import { THEME_STORAGE_KEY } from '@/lib/theme';
@@ -70,7 +70,9 @@ export default function PrivacyPage() {
           </li>
           <li>
             Technique : adresse IP, adresse email visée ou compte, tenus en compteurs pour limiter les abus ;
-            journal d’accès du serveur d’entrée (adresse IP, date, page demandée et réponse de chaque requête).
+            journal d’accès du serveur d’entrée (adresse IP, date, page demandée et réponse de chaque requête) ;
+            journal de fonctionnement du serveur, dont les messages d’erreur peuvent mentionner une adresse IP ou
+            une page demandée.
           </li>
         </ul>
         <p className="mt-3">
@@ -163,6 +165,7 @@ export default function PrivacyPage() {
           <li>Compteurs anti-abus : {duration(RETENTION.rateLimitHitHours, 'heure')}.</li>
           <li>Journal d’accès du serveur d’entrée : {duration(PROXY_RETENTION.accessLogDays, 'jour')}.</li>
           <li>Adresses IP signalées par CrowdSec : {duration(PROXY_RETENTION.alertsDays, 'jour')} au plus.</li>
+          <li>Journal de fonctionnement du serveur : {duration(SUPERVISION_RETENTION.logsDays, 'jour')}.</li>
         </ul>
       </LegalSection>
 

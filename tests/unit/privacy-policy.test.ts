@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DEVICE, SESSION } from '@/config/limits';
-import { PROXY_RETENTION, RETENTION } from '@/config/retention';
+import { PROXY_RETENTION, RETENTION, SUPERVISION_RETENTION } from '@/config/retention';
 import { duration, secondsInWords } from '@/lib/duration-words';
 import { THEME_STORAGE_KEY } from '@/lib/theme';
 import { GOOGLE_HANDSHAKE_COOKIE } from '@/server/auth/google-handshake';
@@ -50,6 +50,7 @@ describe('politique de confidentialité', () => {
     expect(page).toContain(`anti-abus : ${RETENTION.rateLimitHitHours} heures`);
     expect(page).toContain(`serveur d’entrée : ${PROXY_RETENTION.accessLogDays} jours`);
     expect(page).toContain(`CrowdSec : ${PROXY_RETENTION.alertsDays} jours au plus`);
+    expect(page).toContain(`Journal de fonctionnement du serveur : ${SUPERVISION_RETENTION.logsDays} jours`);
   });
 
   it('suit la configuration au lieu de la recopier', () => {

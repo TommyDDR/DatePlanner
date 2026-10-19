@@ -1,0 +1,41 @@
+# Requêtes de l'exporteur PostgreSQL d'Alloy - conteneur de DatePlanner
+# (CT 202), /etc/alloy/dateplanner-queries.yaml (dateplanner.alloy).
+#
+# L'état de la file d'envoi, que le transport ne dit pas : des identifiants
+# SMTP expirés laisseraient les emails s'accumuler sans que rien d'autre ne
+# bouge. Une entrée en SURSIS (`send_after` à venir : un résumé retenu) n'est
+# pas en retard, seule une entrée DUE compte pour l'ancienneté. Les noms des
+# métriques sont ceux de laserit.fr : les mêmes règles d'alerte les lisent.
+#
+# Des décomptes, jamais un contenu : le rôle `alloy` ne peut lire que ces
+# trois colonnes (deploy/supervision/README.md) - ni le destinataire, ni la
+# charge utile, ni `last_error`. `tests/integration/supervision-queries.test.ts`
+# rejoue la requête sur la base de test : une colonne renommée la casse là,
+# pas en silence sur le serveur.
+#
+# Prisma range ses dates en UTC, SANS fuseau (`timestamp`) : comparées à
+# `now()`, qui en porte un, elles seraient lues à l'heure du serveur et
+# décalées de deux heures l'été. L'instant présent est donc ramené en UTC
+# (`now() AT TIME ZONE 'UTC'`), comme `scripts/lib/backup-recorded.sql`.
+
+email_outbox:
+  query: |
+    SELECT
+      count(*) FILTER (WHERE "status" = 'PENDING') AS pending,
+      count(*) FILTER (WHERE "status" = 'FAILED') AS failed,
+      COALESCE(
+        EXTRACT(EPOCH FROM (now() AT TIME ZONE 'UTC') - min("created_at")
+          FILTER (WHERE "status" = 'PENDING' AND "send_after" <= now() AT TIME ZONE 'UTC')),
+        0
+      ) AS oldest_due_seconds
+    FROM "email_outbox"
+  metrics:
+    - pending:
+        usage: GAUGE
+        description: Emails en attente d'envoi, sursis compris.
+    - failed:
+        usage: GAUGE
+        description: Emails abandonnés après épuisement des tentatives.
+    - oldest_due_seconds:
+        usage: GAUGE
+        description: Ancienneté du plus ancien email dû et pas encore parti, en secondes ; 0 si aucun.

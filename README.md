@@ -341,10 +341,11 @@ script modifié se réinstalle de la même façon.
   archives ailleurs, de façon planifiée, fait partie de l'installation ; puis
   éprouver une restauration complète avec `scripts/restore.sh` sur une base
   vierge. Une sauvegarde jamais restaurée ne prouve rien.
-- **Surveillance extérieure** de `https://dateplanner.laserit.fr/api/sante`,
-  par un service tiers, toutes les 5 minutes, avec alerte par email : un
-  service tombé ne peut pas prévenir qu'il est tombé. `/api/sante` répond 200
-  seulement si le processus ET la base répondent.
+- **Supervision** : Alloy sur le conteneur, selon
+  `deploy/supervision/README.md`. La supervision de l'hyperviseur (dépôt de
+  laserit.fr) sonde déjà `/api/sante` toutes les minutes et prévient par
+  email ; une coupure de courant, de box ou d'internet est dite par
+  Healthchecks.io (décision 044).
 - **Administrateur** : `ADMIN_EMAILS` dans `/opt/dateplanner/.env`, puis
   `sudo systemctl restart dateplanner` et une connexion qui prouve l'adresse
   (§ 3).
