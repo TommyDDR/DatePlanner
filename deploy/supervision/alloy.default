@@ -1,0 +1,13 @@
+# Options d'Alloy - /etc/default/alloy du conteneur de DatePlanner.
+#
+# Installation : deploy/supervision/README.md. Le paquet lit ce fichier à
+# chaque démarrage ; la configuration est dans /etc/alloy/config.alloy
+# (deploy/supervision/dateplanner.alloy).
+
+CONFIG_FILE="/etc/alloy/config.alloy"
+
+# Alloy rapporte par défaut son usage à Grafana Labs : rien ne sort d'ici.
+# Son interface de diagnostic reste en boucle locale (127.0.0.1:12345).
+CUSTOM_ARGS="--disable-reporting"
+
+RESTART_ON_UPGRADE=true

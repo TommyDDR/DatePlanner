@@ -22,7 +22,12 @@ dans `specs/001-date-poll/`.
   systemd installées, service en ligne sur `https://dateplanner.laserit.fr`,
   sauvegarde nocturne éprouvée une fois. Restent : le client OAuth Google et
   le mot de passe d'application Gmail dans `/opt/dateplanner/.env`, la
-  surveillance extérieure, la copie des sauvegardes hors du conteneur.
+  copie des sauvegardes hors du conteneur.
+- **Supervision** (décision 044) : Alloy sur le CT 202 pousse mesures, file
+  d'envoi et journal vers la supervision de l'hyperviseur, versionnée dans
+  le dépôt de laserit.fr ; chaque erreur serveur écrit une ligne
+  `server_error` au journal (`src/instrumentation.ts`). Installation :
+  `deploy/supervision/README.md`.
 - **Restauration éprouvée** : le 6 octobre 2026, au passage en conteneur
   LXC (décision 043). `scripts/restore.sh` a rejoué la dernière sauvegarde
   de la VM 102 sur la base vierge du conteneur 202 : 7 sondages,
@@ -56,6 +61,7 @@ poussée, contre un PostgreSQL 17 en service.
 ```
 src/
   proxy.ts                 nonce et CSP par requête, 404 des liens mal formés, cookie de session prolongé
+  instrumentation.ts       une ligne `server_error` au journal par erreur que Next capte
   config/                  valeurs déclarées UNE fois
     identity.ts            nom, domaine ; éditeur et hébergeur lus dans .env
     admin.ts               comptes administrateurs : ADMIN_EMAILS lu dans .env, adresse prouvée exigée
@@ -88,6 +94,7 @@ src/
 prisma/                    schéma et migration (contraintes écrites à la main)
 tests/unit, tests/integration, e2e/
 deploy/, scripts/          unités systemd, Traefik, journald, snapshots ; sauvegarde et restauration
+deploy/supervision/        Alloy du CT 202 et sa requête de file d'envoi (la supervision vit dans laserit.fr)
 ```
 
 ---
@@ -144,6 +151,17 @@ Données (constitution IV) :
   `BACKUP.lateAfterHours`. C'est l'absence qui se lit : script en erreur,
   timer arrêté, disque plein. Un test rejoue la requête du script dans un
   autre fuseau que UTC.
+- Ce qui part vers la supervision est annoncé, et rien d'autre : le journal
+  des SEULES unités `dateplanner*`, sélectionnées deux fois (`matches` et une
+  règle `keep`, `deploy/supervision/dateplanner.alloy`), gardé
+  `SUPERVISION_RETENTION.logsDays` jours comme journald ; l'état de la file
+  d'envoi lu sous un rôle `alloy` qui n'a droit qu'à `status`, `send_after`
+  et `created_at` d'`email_outbox`. La ligne `server_error` dit la route et
+  sa nature, jamais le message ni l'adresse demandée, qui porte le lien d'un
+  sondage. La requête compare les dates de Prisma (UTC, sans fuseau) à
+  `now() AT TIME ZONE 'UTC'` ; `tests/integration/supervision-queries.test.ts`
+  la rejoue dans le fuseau de Paris, `tests/unit/supervision.test.ts` tient
+  le reste.
 - Les scripts d'exploitation LISENT le `.env` (`load_env_file`,
   `scripts/lib/env-file.sh`) comme systemd le lit, ils ne le sourcent pas :
   un mot de passe à espaces y a lancé une commande, et la sauvegarde s'est

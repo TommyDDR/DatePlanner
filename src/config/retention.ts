@@ -34,3 +34,20 @@ export const PROXY_RETENTION = {
   /** Alertes de CrowdSec, avec l'adresse qui les a déclenchées. */
   alertsDays: 7,
 } as const;
+
+/**
+ * Durée du journal du serveur (décision 044).
+ *
+ * Comme `PROXY_RETENTION`, ce n'est pas une purge du service : journald
+ * l'applique sur ce conteneur (`deploy/journald-dateplanner.conf`), Loki sur
+ * le conteneur de supervision, réglé par les fichiers `deploy/supervision/`
+ * de laserit.fr, qui la vérifient. La politique de confidentialité l'annonce,
+ * et `tests/unit/supervision.test.ts` la confronte au fichier de journald.
+ */
+export const SUPERVISION_RETENTION = {
+  /**
+   * Journal du serveur : ce que le service écrit, piles d'erreur comprises -
+   * qui peuvent porter une adresse ou un fragment de requête.
+   */
+  logsDays: 30,
+} as const;

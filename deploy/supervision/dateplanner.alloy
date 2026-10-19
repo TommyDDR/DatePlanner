@@ -1,0 +1,100 @@
+// Alloy - conteneur de DatePlanner (CT 202, 192.168.1.53).
+//
+// Relève la machine (disque, mémoire, unités systemd), PostgreSQL, l'état de
+// la file d'envoi et le journal du service, et pousse le tout vers le
+// conteneur de supervision (CT 203, 192.168.1.54), décrit dans le dépôt de
+// laserit.fr (deploy/supervision/). Rien n'entre dans ce conteneur : Alloy
+// ÉMET, aucun port n'est à ouvrir ici.
+//
+// Installation : deploy/supervision/README.md.
+//
+// Ce qui part du journal : les seules unités de DatePlanner. Une pile
+// d'erreur peut porter une adresse ou un fragment de requête : elle reste
+// sur l'hyperviseur, gardée la durée annoncée par la politique de
+// confidentialité (`SUPERVISION_RETENTION.logsDays`, src/config/retention.ts).
+
+prometheus.remote_write "supervision" {
+	external_labels = {host = "dateplanner"}
+
+	endpoint {
+		url = "http://192.168.1.54:9090/api/v1/write"
+	}
+}
+
+loki.write "supervision" {
+	external_labels = {host = "dateplanner"}
+
+	endpoint {
+		url = "http://192.168.1.54:3100/loki/api/v1/push"
+	}
+}
+
+// ── Machine ────────────────────────────────────────────────────────────────
+
+prometheus.exporter.unix "machine" {
+	enable_collectors = ["systemd"]
+
+	// Les unités qui comptent, et elles seules : un service permanent qui
+	// s'arrête, une tâche qui échoue, un timer qui ne se déclenche plus.
+	systemd {
+		unit_include    = `(dateplanner|dateplanner-maintenance|dateplanner-backup|postgresql@17-main)\.(service|timer)`
+		enable_restarts = true
+	}
+}
+
+prometheus.scrape "machine" {
+	targets         = prometheus.exporter.unix.machine.targets
+	forward_to      = [prometheus.remote_write.supervision.receiver]
+	job_name        = "machine"
+	scrape_interval = "60s"
+}
+
+// ── PostgreSQL ─────────────────────────────────────────────────────────────
+
+// Par la socket locale, sous le rôle `alloy` (lecture des statistiques,
+// `pg_monitor`, et des trois colonnes de la file d'envoi que lit
+// dateplanner-queries.yaml) : aucun mot de passe, aucun port réseau.
+prometheus.exporter.postgres "base" {
+	data_source_names          = ["postgresql://alloy@/dateplanner?host=/var/run/postgresql&sslmode=disable"]
+	custom_queries_config_path = "/etc/alloy/dateplanner-queries.yaml"
+}
+
+prometheus.scrape "base" {
+	targets         = prometheus.exporter.postgres.base.targets
+	forward_to      = [prometheus.remote_write.supervision.receiver]
+	job_name        = "postgres"
+	scrape_interval = "60s"
+}
+
+// ── Journal du service ─────────────────────────────────────────────────────
+
+loki.relabel "journal" {
+	forward_to = []
+
+	// La sélection est déjà faite par `matches` ; la redire ici garantit que
+	// rien d'autre ne part, même si la ligne du dessous change un jour.
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = `dateplanner(-maintenance|-backup)?\.service`
+		action        = "keep"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		target_label  = "unit"
+	}
+
+	rule {
+		source_labels = ["__journal_priority_keyword"]
+		target_label  = "level"
+	}
+}
+
+loki.source.journal "site" {
+	// Trois valeurs d'un même champ : journald les prend comme des alternatives.
+	matches       = "_SYSTEMD_UNIT=dateplanner.service _SYSTEMD_UNIT=dateplanner-maintenance.service _SYSTEMD_UNIT=dateplanner-backup.service"
+	relabel_rules = loki.relabel.journal.rules
+	forward_to    = [loki.write.supervision.receiver]
+	labels        = {job = "journal"}
+	max_age       = "12h"
+}
