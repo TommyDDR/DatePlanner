@@ -13,8 +13,9 @@ ainsi exactement ce qui tourne, et revenir à la version précédente est un
 geste nommé. **Un tag publié ne se déplace pas** : une correction fait une
 nouvelle version.
 
-Aucun déploiement n'est automatique : rien ne part sur le serveur tant qu'on
-ne l'y a pas mis à la main.
+Aucun déploiement n'est automatique : rien ne part sur le serveur sans qu'on
+l'ait lancé depuis un poste de développement, et aucune fusion sur `main` ne
+déploie quoi que ce soit.
 
 | Machine | Adresse | Accès | Rôle |
 |---|---|---|---|
@@ -26,7 +27,64 @@ ne l'y a pas mis à la main.
 
 ## 2. Publier une version
 
-Depuis un poste de développement, avec `gh` authentifié. Exemple pour 0.1.1.
+### En une commande
+
+Depuis la racine du dépôt, sur le réseau local, `gh` authentifié, copie de
+travail propre :
+
+```bash
+npm run release
+```
+
+Tout y est : PR de version, contrôles, fusion, tag, release GitHub,
+snapshot, mise à jour du conteneur, vérification. Le script
+(`scripts/release.sh`) déroule les §§ 2.1 à 3.3 ci-dessous ; ce qui suit dit
+ce qu'il décide à la place de celui qui le lance.
+
+- **Le numéro** est déduit des commits fusionnés depuis le dernier tag :
+  un `feat(…)` fait une version mineure (0.7.1 vers 0.8.0), sinon c'est un
+  correctif (0.7.1 vers 0.7.2). Une rupture (`feat!:`,
+  `BREAKING CHANGE`) fait une majeure à partir de 1.0.0. Pour l'imposer :
+  `npm run release -- minor`, `-- patch`, `-- major` ou `-- 0.8.0`.
+- **Les contrôles** (§ 2.2) sont ceux de l'intégration continue : le script
+  attend ses deux passages sur le commit de version, la poussée et la pull
+  request, et s'arrête si l'un n'est pas vert. Si le workflow est désactivé
+  sur GitHub, il les rejoue en local, et retient le commit contrôlé
+  (`.git/release-controls`) : relancé, il ne les rejoue pas sur un commit
+  qui les a déjà passés.
+- **Ce qui est fusionné est ce qui a été contrôlé.** Si `main` bouge pendant
+  les contrôles, la branche de version est refaite sur le nouveau `main` et
+  contrôlée de nouveau ; la fusion exige le commit contrôlé
+  (`--match-head-commit`).
+- **Il reprend là où il s'est arrêté.** Chaque étape regarde l'état avant
+  d'agir : une PR de version ouverte est reprise, une PR fusionnée est
+  taguée, un tag publié est déployé, une version en ligne est seulement
+  vérifiée. Après un échec, le script affiche la commande qui reprend
+  (`npm run release -- 0.8.0`) ; sans argument, il reprend aussi une version
+  fusionnée mais pas taguée, ou taguée mais pas en ligne, plutôt que d'en
+  ouvrir une nouvelle.
+- **Il change de branche** dans la copie de travail et finit sur `main`, à
+  jour. Un fichier suivi modifié l'arrête avant tout geste.
+
+Variantes :
+
+```bash
+npm run release -- --preparer      # PR de version ouverte et contrôlée, puis arrêt
+npm run deploy -- v0.8.0           # déploie une version déjà publiée (§ 3)
+npm run deploy -- --essai v0.8.0   # dit ce qu'il ferait, sans rien toucher
+```
+
+`--preparer` laisse la PR à relire ; `npm run release -- 0.8.0` la reprend
+ensuite. `npm run deploy` reprend un déploiement interrompu, ou revient à une
+version antérieure sans migration entre les deux (§ 5).
+
+`npm run` passe par cmd.exe sous Windows, où `bash` est souvent celui de WSL :
+une autre machine, sans les clés SSH ni l'authentification de `gh`.
+`scripts/lib/run-bash.mjs` lance donc le bash de Git (`GIT_BASH` en désigne
+un autre). Depuis Git Bash, les scripts se lancent aussi directement.
+
+Les sections qui suivent font la même chose à la main. Depuis un poste de
+développement, avec `gh` authentifié. Exemple pour 0.1.1.
 
 ### 2.1 Pull request de version
 
@@ -72,6 +130,11 @@ gh release create v0.1.1 --verify-tag --generate-notes
 
 ## 3. Déployer une version
 
+Ce que fait `npm run deploy -- v0.1.1` (`scripts/deploy.sh`), appelé en
+dernier par `npm run release`. Il saute le snapshot s'il existe déjà, ou pour
+revenir à une version antérieure ; il signale les fichiers de `deploy/`
+modifiés depuis la version en ligne, qui restent à réinstaller à la main.
+
 ### 3.1 Snapshot du conteneur
 
 Toujours AVANT de toucher au serveur : c'est le retour arrière si la version
@@ -100,16 +163,22 @@ cd /opt/dateplanner
 sudo -u dateplanner -H git fetch --tags origin
 sudo -u dateplanner -H git checkout --detach v0.1.1
 sudo -u dateplanner -H npm ci
-sudo -u dateplanner -H npx prisma migrate deploy
 sudo -u dateplanner -H npm run build
+sudo -u dateplanner -H npx prisma migrate deploy
 sudo systemctl restart dateplanner
 ```
 
+- **Le build passe AVANT les migrations.** Il ne lit pas la base - toutes
+  les pages sont rendues à la requête - : s'il échoue, la base est encore
+  celle de la version en ligne, et revenir à l'ancien tag suffit (§ 5, sans
+  migration). `npm run deploy` le fait seul : il remet le code d'avant, le
+  reconstruit, redémarre et s'arrête en échec.
+- **Si `npm run build` échoue, ne pas redémarrer sur la nouvelle version.**
+  Le service tourne encore sur l'ancienne, chargée en mémoire, mais le
+  dossier `.next` est à moitié réécrit : reconstruire l'ancien tag puis
+  redémarrer.
 - `npm ci` et `migrate deploy` ne font rien si les dépendances ou le schéma
   n'ont pas changé : les lancer à chaque fois évite d'en oublier un.
-- **Si `npm run build` échoue, ne pas redémarrer.** Le service tourne encore
-  sur l'ancienne version, chargée en mémoire. Revenir à l'ancien tag et
-  reconstruire (§ 5).
 - Le dépôt du serveur est en « HEAD détachée » : c'est voulu, il est posé sur
   une version et non sur une branche.
 - Un fichier de `deploy/` modifié par la version se réinstalle à la main
