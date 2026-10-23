@@ -96,7 +96,7 @@ service maintenu par une seule personne.
 - **Hébergement** : auto-hébergé sur l'infrastructure existante (hôte Proxmox), dans une VM
   dédiée, derrière la VM proxy (Traefik + CrowdSec) qui termine le HTTPS et pose les en-têtes
   d'origine ; le service NE DOIT faire confiance qu'aux en-têtes posés par ce proxy.
-- **Adresse** : `https://dateplanner.laserit.fr` uniquement ; toute requête reçue en clair
+- **Adresse** : `https://dateplanner.fr` uniquement ; toute requête reçue en clair
   DOIT être redirigée vers cette adresse.
 - **Déploiement** : la production DOIT servir une version étiquetée (tag), jamais une branche ;
   un snapshot de la VM DOIT précéder chaque déploiement.

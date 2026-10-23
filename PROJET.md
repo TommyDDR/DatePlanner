@@ -28,6 +28,9 @@ dans `specs/001-date-poll/`.
   le dépôt de laserit.fr ; chaque erreur serveur écrit une ligne
   `server_error` au journal (`src/instrumentation.ts`). Installation :
   `deploy/supervision/README.md`.
+- **Nom de domaine** (décision 045) : le service passe sur
+  `https://dateplanner.fr` ; `www.dateplanner.fr` et
+  `dateplanner.laserit.fr` y sont renvoyés par Traefik.
 - **Restauration éprouvée** : le 6 octobre 2026, au passage en conteneur
   LXC (décision 043). `scripts/restore.sh` a rejoué la dernière sauvegarde
   de la VM 102 sur la base vierge du conteneur 202 : 7 sondages,

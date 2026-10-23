@@ -7,17 +7,37 @@
 # laserit.fr, déjà déclarés dans la configuration statique du conteneur
 # proxy.
 #
-# DNS : `dateplanner` est un CNAME de `laserit.fr.` chez OVH ; le certificat
-# est obtenu pour ce nom au premier accès.
+# DNS : `dateplanner.fr` et `www.dateplanner.fr` pointent sur l'adresse
+# publique ; l'ancien `dateplanner.laserit.fr` reste un CNAME de `laserit.fr.`
+# chez OVH. Les certificats sont obtenus pour ces noms au premier accès.
 
 http:
   routers:
     dateplanner:
-      rule: "Host(`dateplanner.laserit.fr`)"
+      rule: "Host(`dateplanner.fr`)"
       entryPoints: [websecure]
       service: dateplanner
       tls:
         certResolver: letsencrypt
+
+    # `www` et l'ancienne adresse renvoient, en permanence, sur la seule
+    # adresse publique : les liens déjà partagés ou envoyés par email restent
+    # valides, et le site n'existe que sous un nom (cookies, métadonnées).
+    dateplanner-ancien-nom:
+      rule: "Host(`www.dateplanner.fr`) || Host(`dateplanner.laserit.fr`)"
+      entryPoints: [websecure]
+      middlewares: [dateplanner-vers-domaine]
+      # Jamais atteint : la redirection répond avant lui.
+      service: dateplanner
+      tls:
+        certResolver: letsencrypt
+
+  middlewares:
+    dateplanner-vers-domaine:
+      redirectRegex:
+        regex: "^https?://[^/]+(.*)"
+        replacement: "https://dateplanner.fr${1}"
+        permanent: true
 
   services:
     dateplanner:

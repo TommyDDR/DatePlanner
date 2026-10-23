@@ -1,6 +1,6 @@
 # DatePlanner
 
-Sondages de dates en ligne, sur `https://dateplanner.laserit.fr`. Un créateur
+Sondages de dates en ligne, sur `https://dateplanner.fr`. Un créateur
 propose des jours, partage un lien ; chacun coche ses disponibilités, avec un
 compte ou sous un simple pseudo, et les votes s'affichent en direct chez tout
 le monde.
@@ -70,7 +70,7 @@ un test d'hygiène du dépôt le vérifie.
 | Variable | Rôle | Développement | Production |
 |---|---|---|---|
 | `DATABASE_URL` | base PostgreSQL | `…/dateplanner` | `…/dateplanner` dans le conteneur |
-| `NEXT_PUBLIC_SITE_URL` | adresse publique (liens des emails, métadonnées) | `http://localhost:3000` | `https://dateplanner.laserit.fr` |
+| `NEXT_PUBLIC_SITE_URL` | adresse publique (liens des emails, métadonnées) | `http://localhost:3000` | `https://dateplanner.fr` |
 | `EDITOR_NAME`, `EDITOR_ADDRESS` | éditeur et hébergeur des mentions légales | vides (repère « non renseigné ») | nom complet et adresse postale |
 | `APP_SECRET` | signatures : cookie Google, liens de désactivation | 32 octets aléatoires | idem, propre à la production |
 | `CRON_SECRET` | appel de la maintenance | valeur aléatoire | idem |
@@ -135,12 +135,12 @@ Le bouton « Continuer avec Google » n'apparaît que si les deux variables
 
 1. Console Google Cloud, **même projet que laserit.fr**.
 2. **Écran de consentement OAuth** : externe, publié, avec le lien vers
-   `https://dateplanner.laserit.fr/confidentialite`. Les autorisations
+   `https://dateplanner.fr/confidentialite`. Les autorisations
    demandées (`openid email profile`) ne sont pas sensibles.
 3. **Identifiants > ID client OAuth 2.0**, type « Application Web ». URI de
    redirection autorisés, **au caractère près** :
    - `http://localhost:3000/api/connexion/google/retour` pour développer ;
-   - `https://dateplanner.laserit.fr/api/connexion/google/retour` en production.
+   - `https://dateplanner.fr/api/connexion/google/retour` en production.
 4. Reporter l'identifiant et le secret dans `.env`, puis redémarrer.
 
 Un compte local de même adresse est retrouvé, sans doublon, si Google a
@@ -295,16 +295,20 @@ systemctl list-timers 'dateplanner-*'
 
 ### 6.4 DNS chez OVH
 
-Espace client OVH > Noms de domaine > `laserit.fr` > Zone DNS > Ajouter une
-entrée :
+Espace client OVH > Noms de domaine > `dateplanner.fr` > Zone DNS :
 
-- type **CNAME**, sous-domaine `dateplanner`, cible `laserit.fr.` (avec le
-  point final), TTL par défaut.
+- type **A**, sous-domaine vide (le domaine lui-même), cible l'adresse
+  publique de la box ;
+- type **A** ou **CNAME** vers `dateplanner.fr.`, sous-domaine `www`.
 
-Le sous-domaine suit ainsi l'adresse de `laserit.fr` sans rien à tenir à jour.
-Vérifier, une fois la propagation faite :
+L'ancienne adresse reste en place, pour les liens déjà partagés : dans la zone
+de `laserit.fr`, le **CNAME** `dateplanner` vers `laserit.fr.`. Traefik la
+renvoie, comme `www`, sur `https://dateplanner.fr` (§ 6.5). Vérifier, une fois
+la propagation faite :
 
 ```powershell
+Resolve-DnsName dateplanner.fr             # <IP publique>
+Resolve-DnsName www.dateplanner.fr         # <IP publique>
 Resolve-DnsName dateplanner.laserit.fr     # <IP publique>, par le CNAME
 ```
 
@@ -315,9 +319,10 @@ scp deploy/traefik/dateplanner.yml admin@192.168.1.51:/tmp/
 ssh admin@192.168.1.51 sudo cp /tmp/dateplanner.yml /etc/traefik/dynamic/
 ```
 
-Traefik relit le répertoire de lui-même, obtient le certificat Let's Encrypt
-de `dateplanner.laserit.fr` au premier accès et renvoie `http://` vers
-`https://`. Il pose `X-Forwarded-Proto` et `X-Real-IP` en retirant ceux
+Traefik relit le répertoire de lui-même, obtient les certificats Let's Encrypt
+de `dateplanner.fr`, `www.dateplanner.fr` et `dateplanner.laserit.fr` au
+premier accès et renvoie `http://` vers `https://`. Les deux derniers noms
+sont renvoyés en permanence sur `https://dateplanner.fr`, chemin compris. Il pose `X-Forwarded-Proto` et `X-Real-IP` en retirant ceux
 qu'envoie le visiteur : sans le premier, tout serait redirigé en boucle ; sans
 le second, l'anti-flood compterait tous les visiteurs comme un seul.
 

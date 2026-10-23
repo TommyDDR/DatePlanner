@@ -7,9 +7,9 @@
  */
 
 /** Domaine public du service. */
-export const SITE_DOMAIN = 'dateplanner.laserit.fr';
+export const SITE_DOMAIN = 'dateplanner.fr';
 
-/** Adresse publique en production : HTTPS, sur le sous-domaine. */
+/** Adresse publique en production : HTTPS, sur le domaine. */
 export const SITE_ORIGIN = `https://${SITE_DOMAIN}`;
 
 export const IDENTITY = {
