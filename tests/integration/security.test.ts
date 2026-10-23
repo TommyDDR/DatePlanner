@@ -36,8 +36,8 @@ function directive(policy: string | null, name: string): string {
 
 describe('politique de sécurité des pages', () => {
   it('porte un nonce neuf par requête, sans « unsafe-inline », transmis au rendu', () => {
-    const first = proxy(new NextRequest('https://dateplanner.laserit.fr/s/abc'));
-    const second = proxy(new NextRequest('https://dateplanner.laserit.fr/'));
+    const first = proxy(new NextRequest('https://dateplanner.fr/s/abc'));
+    const second = proxy(new NextRequest('https://dateplanner.fr/'));
     const policy = first.headers.get('Content-Security-Policy');
     const scriptSrc = directive(policy, 'script-src');
     expect(scriptSrc).toMatch(/'nonce-[A-Za-z0-9+/]{22}=='/);
@@ -55,7 +55,7 @@ describe('politique de sécurité des pages', () => {
 describe('configuration de production', () => {
   async function productionConfig() {
     vi.stubEnv('NODE_ENV', 'production');
-    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://dateplanner.laserit.fr');
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://dateplanner.fr');
     vi.stubEnv('EDITOR_NAME', 'Éditeur de test');
     vi.stubEnv('EDITOR_ADDRESS', '1 rue de l’Exemple 00000 Exempleville');
     vi.resetModules();
@@ -64,7 +64,7 @@ describe('configuration de production', () => {
 
   it('refuse de se charger sans l’identité de l’éditeur', async () => {
     vi.stubEnv('NODE_ENV', 'production');
-    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://dateplanner.laserit.fr');
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://dateplanner.fr');
     vi.stubEnv('EDITOR_NAME', '');
     vi.stubEnv('EDITOR_ADDRESS', '');
     vi.resetModules();
@@ -76,7 +76,7 @@ describe('configuration de production', () => {
     const redirects = await config.redirects!();
     expect(redirects.length).toBeGreaterThan(0);
     for (const rule of redirects) {
-      expect(rule.destination).toBe('https://dateplanner.laserit.fr/:path*');
+      expect(rule.destination).toBe('https://dateplanner.fr/:path*');
       expect(rule.permanent).toBe(true);
     }
   });

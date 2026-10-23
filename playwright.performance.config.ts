@@ -37,7 +37,7 @@ export default defineConfig({
     env: {
       NODE_ENV: 'production',
       NEXT_DIST_DIR: '.next/performance',
-      NEXT_PUBLIC_SITE_URL: 'https://dateplanner.laserit.fr',
+      NEXT_PUBLIC_SITE_URL: 'https://dateplanner.fr',
       EDITOR_NAME: 'Éditeur de test',
       EDITOR_ADDRESS: "1 rue de l'Exemple 00000 Exempleville",
       EMAIL_DRIVER: 'console',

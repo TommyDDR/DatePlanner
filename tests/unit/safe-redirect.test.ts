@@ -21,7 +21,7 @@ describe('safeInternalPath', () => {
   it("refuse l'antislash, que les navigateurs lisent comme une autorité", () => {
     expect(safeInternalPath('/\\exemple.test', '/mes-sondages')).toBe('/mes-sondages');
     expect(safeInternalPath('/\\\\exemple.test', '/mes-sondages')).toBe('/mes-sondages');
-    expect(new URL('/\\exemple.test', 'https://dateplanner.laserit.fr').origin).toBe('https://exemple.test');
+    expect(new URL('/\\exemple.test', 'https://dateplanner.fr').origin).toBe('https://exemple.test');
   });
 
   it('refuse tabulations et retours ligne, retirés par les navigateurs avant analyse', () => {

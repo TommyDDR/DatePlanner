@@ -121,8 +121,8 @@ sudo systemctl restart dateplanner
 sudo -u dateplanner -H git describe --tags          # v0.1.1
 systemctl is-active dateplanner                     # active
 sudo journalctl -u dateplanner -n 50 --no-pager     # « Ready », aucune erreur
-curl -s -o /dev/null -w "%{http_code}\n" https://dateplanner.laserit.fr/api/sante   # 200
-curl -s https://dateplanner.laserit.fr/api/sante    # ni "maintenance":"late", ni "backup":"late"
+curl -s -o /dev/null -w "%{http_code}\n" https://dateplanner.fr/api/sante   # 200
+curl -s https://dateplanner.fr/api/sante    # ni "maintenance":"late", ni "backup":"late"
 ```
 
 Puis, dans un navigateur : l'accueil, un sondage ouvert dans deux fenêtres (un

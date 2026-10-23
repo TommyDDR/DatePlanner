@@ -30,7 +30,7 @@
  * la servir telle quelle.
  *
  * La destination est l'adresse PUBLIQUE (`SITE_URL`), jamais l'hôte reçu :
- * `http://dateplanner.laserit.fr:3000` renvoyé sur le même port en `https`
+ * `http://dateplanner.fr:3000` renvoyé sur le même port en `https`
  * mènerait à un port qui ne parle pas TLS. Le code 308 garde la méthode et le corps :
  * un formulaire posté en clair est reposté en HTTPS, pas changé en `GET`.
  */

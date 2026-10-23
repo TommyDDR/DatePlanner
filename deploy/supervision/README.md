@@ -22,7 +22,7 @@ Ce qui part d'ici vers le CT 203 :
 
 Les règles d'alerte de laserit.fr couvrent DatePlanner sans rien y ajouter :
 elles portent sur toutes les machines, et les sondes de `/api/sante` du CT
-203 interrogent déjà `https://dateplanner.laserit.fr`.
+203 interrogent `https://dateplanner.fr`.
 
 ---
 

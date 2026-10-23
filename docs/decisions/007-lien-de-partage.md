@@ -4,7 +4,7 @@ _Source : research.md, R7._
 
 ## Décision
 
-Identifiant public aléatoire de 128 bits en base64url (22 caractères), distinct de l'identifiant interne : `https://dateplanner.laserit.fr/s/<identifiant>`. Une valeur mal formée ou inconnue répond « introuvable » (404).
+Identifiant public aléatoire de 128 bits en base64url (22 caractères), distinct de l'identifiant interne : `https://dateplanner.fr/s/<identifiant>`. Une valeur mal formée ou inconnue répond « introuvable » (404).
 
 ## Pourquoi
 

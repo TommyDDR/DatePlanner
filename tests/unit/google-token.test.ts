@@ -53,7 +53,7 @@ describe('adresse de départ', () => {
     const url = new URL(
       authorizationUrl({
         clientId: CLIENT_ID,
-        redirectUri: 'https://dateplanner.laserit.fr/api/connexion/google/retour',
+        redirectUri: 'https://dateplanner.fr/api/connexion/google/retour',
         state: handshake.state,
         verifier: handshake.verifier,
       }),
@@ -66,8 +66,8 @@ describe('adresse de départ', () => {
   });
 
   it('compose le retour sur l’adresse publique', () => {
-    expect(googleRedirectUri('https://dateplanner.laserit.fr')).toBe(
-      'https://dateplanner.laserit.fr/api/connexion/google/retour',
+    expect(googleRedirectUri('https://dateplanner.fr')).toBe(
+      'https://dateplanner.fr/api/connexion/google/retour',
     );
   });
 });
