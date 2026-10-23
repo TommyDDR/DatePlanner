@@ -186,9 +186,9 @@ dépendance y existe.
 
 | Dépendance | Version | | Dépendance de développement | Version |
 |---|---|---|---|---|
-| next | 16.3.4 | | typescript | 5.9.3 |
+| next | 16.4.2 | | typescript | 5.9.3 |
 | react, react-dom | 19.2.8 | | eslint | 9.39.5 |
-| @prisma/client, @prisma/adapter-pg | 7.10.0 | | eslint-config-next | 16.3.4 |
+| @prisma/client, @prisma/adapter-pg | 7.10.0 | | eslint-config-next | 16.4.2 |
 | pg | 8.23.0 | | prisma | 7.10.0 |
 | zod | 4.5.4 | | tailwindcss, @tailwindcss/postcss | 4.3.3 |
 | @node-rs/argon2 | 2.2.0 | | vitest | 4.1.11 |
