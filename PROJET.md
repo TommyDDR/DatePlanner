@@ -93,7 +93,8 @@ src/
   components/              calendrier, thème, formulaires, démonstration de l'accueil
 prisma/                    schéma et migration (contraintes écrites à la main)
 tests/unit, tests/integration, e2e/
-deploy/, scripts/          unités systemd, Traefik, journald, snapshots ; sauvegarde et restauration
+deploy/, scripts/          unités systemd, Traefik, journald, snapshots ; sauvegarde et restauration ;
+                           publication et déploiement d'une version (`npm run release`, `npm run deploy`)
 deploy/supervision/        Alloy du CT 202 et sa requête de file d'envoi (la supervision vit dans laserit.fr)
 ```
 

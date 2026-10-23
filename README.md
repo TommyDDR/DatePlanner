@@ -46,6 +46,8 @@ npm run e2e:perf     # SC-005 sur un build de production (port 3101)
 npm run build        # build de production
 npm run db:migrate   # nouvelle migration en développement
 npm run db:studio    # explorer la base
+npm run release      # publier une version et la déployer (deploy.md § 2)
+npm run deploy -- v0.8.0   # déployer une version déjà publiée (deploy.md § 3)
 ```
 
 Les tests d'intégration et les parcours vident les tables : ils refusent une
@@ -261,7 +263,7 @@ Le mot de passe de la base, `APP_SECRET` et `CRON_SECRET` se tirent au hasard
 dans le conteneur (commande du § 3) et ne s'écrivent que dans ce fichier.
 
 Le premier déploiement d'une version suit ensuite `deploy.md` § 3 (checkout
-du tag, `npm ci`, `prisma migrate deploy`, build).
+du tag, `npm ci`, build, `prisma migrate deploy`).
 
 ### 6.3 Unités systemd
 
