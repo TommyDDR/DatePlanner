@@ -377,7 +377,7 @@ export function DatePicker({
         ? monthOf(openOn)
         : initialDay && Object.keys(marks).length === 0
           ? monthOf(initialDay)
-          : initialMonth({ selected: Object.keys(marks), highlighted, min, today }),
+          : initialMonth({ selected: Object.keys(marks), locked, highlighted, min, today }),
       months,
       { first: firstBound, last: lastBound },
     ),

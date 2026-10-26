@@ -221,18 +221,21 @@ export function windowStart(
 }
 
 /**
- * Le mois qu'ouvre le calendrier : celui du premier jour choisi, sinon du
- * premier jour mis en évidence, sinon du premier jour permis, sinon
+ * Le mois qu'ouvre le calendrier : celui du premier jour choisi ou verrouillé,
+ * sinon du premier jour mis en évidence, sinon du premier jour permis, sinon
  * d'aujourd'hui. Ouvrir sur un mois vide quand les jours proposés sont le mois
- * suivant ferait chercher ce qu'on vient de recevoir.
+ * suivant ferait chercher ce qu'on vient de recevoir ; ouvrir après un jour
+ * verrouillé - déjà voté, il reste proposé - le ferait sortir de la vue.
  */
 export function initialMonth(input: {
   selected: readonly Day[];
+  locked?: readonly Day[];
   highlighted: readonly Day[];
   min?: Day | null;
   today: Day;
 }): Month {
-  const firstSelected = [...input.selected].sort()[0];
+  const locked = (input.locked ?? []).filter((day) => !input.min || day >= input.min);
+  const firstSelected = [...input.selected, ...locked].sort()[0];
   const firstHighlighted = [...input.highlighted]
     .filter((day) => !input.min || day >= input.min)
     .sort()[0];
