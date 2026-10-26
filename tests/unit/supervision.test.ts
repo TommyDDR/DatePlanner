@@ -44,6 +44,10 @@ describe('La ligne d’erreur que la supervision compte', () => {
     expect(isReportableError('une chaîne')).toBe(true);
   });
 
+  it('ignore le corps illisible d’une Server Action forgée', () => {
+    expect(isReportableError(new TypeError('Failed to parse body as FormData.'))).toBe(false);
+  });
+
   it('écrit une ligne par erreur, dans le processus Node seulement', async () => {
     vi.stubEnv('NEXT_RUNTIME', 'nodejs');
     await onRequestError(new Error('boum'), request, context);
