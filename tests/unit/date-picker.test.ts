@@ -193,6 +193,19 @@ describe('Ouverture et clavier', () => {
     });
   });
 
+  it('ouvre sur un jour verrouillé qui précède le choix, sans remonter avant le premier jour permis', () => {
+    const today = '2026-10-26';
+    const selected = ['2026-11-01'];
+    expect(initialMonth({ selected, locked: ['2026-10-29'], highlighted: [], min: today, today })).toEqual({
+      year: 2026,
+      month: 10,
+    });
+    expect(initialMonth({ selected, locked: ['2026-09-30'], highlighted: [], min: today, today })).toEqual({
+      year: 2026,
+      month: 11,
+    });
+  });
+
   it('déplace le jour au clavier, et ramène un quantième trop grand au dernier jour du mois', () => {
     expect(keyTarget('2026-09-16', 'ArrowDown')).toBe('2026-09-23');
     expect(keyTarget('2026-09-16', 'Home')).toBe('2026-09-14');
