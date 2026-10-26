@@ -27,12 +27,21 @@ const VISITOR_GONE_MESSAGES = new Set([
   'The destination stream errored while writing data.',
 ]);
 
+/**
+ * Un POST multipart au corps illisible, sur n'importe quelle page : Next y
+ * cherche une Server Action et lève en lisant le formulaire, AVANT d'avoir
+ * vérifié l'identifiant d'action. Les formulaires de l'application envoient
+ * toujours un corps valide ; ce corps-là vient d'un robot qui sonde les
+ * Server Actions, et le compter ferait sonner l'alerte à chaque passage.
+ */
+const MALFORMED_REQUEST_MESSAGES = new Set(['Failed to parse body as FormData.']);
+
 export function isReportableError(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return true;
   const code = 'code' in error ? String((error as { code: unknown }).code) : '';
   const message = error instanceof Error ? error.message : '';
   if (code === 'ECONNRESET' || code === 'EPIPE' || code === 'ERR_STREAM_PREMATURE_CLOSE') return false;
-  return !VISITOR_GONE_MESSAGES.has(message);
+  return !VISITOR_GONE_MESSAGES.has(message) && !MALFORMED_REQUEST_MESSAGES.has(message);
 }
 
 /** Ce que Next dit de l'endroit où l'erreur est survenue (`onRequestError`). */
