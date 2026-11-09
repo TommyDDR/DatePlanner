@@ -9,17 +9,17 @@
 #
 # Le snapshot s'appelle `avant_v0_7_0` : Proxmox refuse le point dans un nom.
 # Une fois pris, seuls les SNAPSHOT_KEEP plus récents snapshots `avant_*`
-# restent : celui de ce déploiement et celui du précédent. Un snapshot nommé
-# autrement, pris à la main, n'est jamais supprimé.
+# restent : celui de ce déploiement, par défaut. Un snapshot nommé autrement,
+# pris à la main, n'est jamais supprimé.
 #
 # Variables lues dans l'environnement :
 #   CTID           conteneur LXC concerné (défaut : 202)
-#   SNAPSHOT_KEEP  nombre de snapshots `avant_*` conservés (défaut : 2)
+#   SNAPSHOT_KEEP  nombre de snapshots `avant_*` conservés (défaut : 1)
 
 set -euo pipefail
 
 CTID="${CTID:-202}"
-SNAPSHOT_KEEP="${SNAPSHOT_KEEP:-2}"
+SNAPSHOT_KEEP="${SNAPSHOT_KEEP:-1}"
 VERSION="${1:-}"
 
 if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
