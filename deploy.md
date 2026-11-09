@@ -146,8 +146,8 @@ ssh root@192.168.1.10 dateplanner-snapshot v0.1.1
 
 Le script (`deploy/dateplanner-snapshot.sh`, installé sur l'hôte par
 `README.md` § 6.6) prend le snapshot `avant_v0_1_1` - Proxmox refuse le point
-dans un nom -, puis supprime les snapshots `avant_*` plus anciens que les deux
-derniers : restent celui-ci et celui du déploiement précédent.
+dans un nom -, puis supprime les snapshots `avant_*` plus anciens : seul
+celui-ci reste.
 
 En reprenant un déploiement raté, ne pas le relancer : le snapshot existe déjà
 et tient l'état d'avant la première tentative. Le script refuse d'ailleurs un
@@ -201,9 +201,9 @@ vérifications de `specs/001-date-poll/quickstart.md` § 5.
 
 ### 3.4 Suppression des snapshots
 
-Rien à faire : le déploiement suivant supprime les snapshots au-delà des deux
-derniers (§ 3.1). Un snapshot grossit à chaque écriture sur le disque ; deux
-suffisent à revenir sur la version d'avant, ou sur celle d'encore avant.
+Rien à faire : le déploiement suivant supprime le snapshot précédent (§ 3.1).
+Un snapshot grossit à chaque écriture sur le disque ; un seul suffit à revenir
+sur la version d'avant.
 
 ```bash
 ssh root@192.168.1.10 pct listsnapshot 202
