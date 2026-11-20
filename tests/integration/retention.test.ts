@@ -93,7 +93,7 @@ describe('comptes inactifs', () => {
     await createUser({ lastActiveAt: yearsAgo(RETENTION.inactiveAccountYears, 1) });
     await runMaintenance();
     const printed = info.mock.calls.map((call) => String(call[0])).join('\n');
-    expect(printed).toMatch(/Votre compte DatePlanner sera supprimé le \w+ \d{1,2} \w+ \d{4}/);
+    expect(printed).toMatch(/Votre compte DatePlanner sera supprimé le \p{L}+ \d{1,2} \p{L}+ \d{4}/u);
   });
 
   it('ne sont jamais supprimés sans avertissement parti', async () => {
