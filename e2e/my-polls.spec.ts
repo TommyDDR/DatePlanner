@@ -31,13 +31,36 @@ async function seedPoll(ownerEmail: string, title: string): Promise<string> {
 /** Les lignes marquées « du nouveau » d'une liste. */
 const news = (page: Page, list: string) => page.getByTestId(list).locator('a[data-news]');
 
+/**
+ * Attend que la version courante du sondage soit enregistrée comme vue par
+ * son créateur, ou par la réponse du compte `respondentEmail`.
+ *
+ * On lit la base plutôt que d'attendre la réponse de l'action : Playwright
+ * manquait parfois cette réponse, et le test attendait jusqu'à son délai
+ * alors que le serveur l'avait traitée en quelques millisecondes.
+ */
+async function waitUntilSeen(publicId: string, respondentEmail?: string) {
+  await expect
+    .poll(async () => {
+      const poll = await db.poll.findUniqueOrThrow({ where: { publicId } });
+      const seenAt = respondentEmail
+        ? (
+            await db.response.findFirst({
+              where: { pollId: poll.id, user: { email: respondentEmail } },
+              select: { seenAt: true },
+            })
+          )?.seenAt
+        : poll.ownerSeenAt;
+      return seenAt?.getTime() === poll.activityAt.getTime();
+    })
+    .toBe(true);
+}
+
 /** Ouvre le sondage depuis « Mes sondages » et attend que la page ait dit l'avoir affiché. */
 async function openFromList(page: Page, list: string, title: string, publicId: string) {
-  const seen = page.waitForResponse(
-    (response) => response.request().method() === 'POST' && new URL(response.url()).pathname === `/s/${publicId}`,
-  );
   await page.getByTestId(list).getByRole('link', { name: new RegExp(title) }).click();
-  await (await seen).finished();
+  await page.waitForURL(`**/s/${publicId}`);
+  await waitUntilSeen(publicId);
 }
 
 test('créés, répondus, et du nouveau en direct jusqu’à la prochaine visite', async ({ page, browser }) => {
@@ -52,7 +75,7 @@ test('créés, répondus, et du nouveau en direct jusqu’à la prochaine visite
   // Bob, dans un autre navigateur, répond avec son compte.
   const bobContext = await browser.newContext();
   const bob = await bobContext.newPage();
-  await signUp(bob, { name: 'Bob' });
+  const bobEmail = await signUp(bob, { name: 'Bob' });
   await expect(bob.getByText('Vous n’avez pas encore créé de sondage.')).toBeVisible();
   await bob.goto(`/s/${publicId}`);
   await dayButton(bob, dayFromToday(3)).click();
@@ -102,11 +125,8 @@ test('créés, répondus, et du nouveau en direct jusqu’à la prochaine visite
 
   // Lu dans un autre onglet : la bordure s'efface au retour sur celui-ci.
   const tab = await bobContext.newPage();
-  const seen = tab.waitForResponse(
-    (response) => response.request().method() === 'POST' && new URL(response.url()).pathname === `/s/${publicId}`,
-  );
   await tab.goto(`/s/${publicId}`);
-  await (await seen).finished();
+  await waitUntilSeen(publicId, bobEmail);
   await tab.close();
   await bob.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   await expect(news(bob, 'sondages-repondus')).toHaveCount(0);
