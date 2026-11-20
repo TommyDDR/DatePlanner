@@ -336,10 +336,10 @@ scp deploy/dateplanner-snapshot.sh root@192.168.1.10:/usr/local/sbin/dateplanner
 ssh root@192.168.1.10 chmod 755 /usr/local/sbin/dateplanner-snapshot
 ```
 
-Il nomme le snapshot d'après la version, puis ne garde que les deux plus
-récents snapshots `avant_*` du conteneur 202 : celui du déploiement en cours et
-celui du précédent. Un snapshot nommé autrement n'est jamais supprimé. Un
-script modifié se réinstalle de la même façon.
+Il nomme le snapshot d'après la version, puis ne garde que le plus récent
+snapshot `avant_*` du conteneur 202 : celui du déploiement en cours. Un
+snapshot nommé autrement n'est jamais supprimé. Un script modifié se réinstalle
+de la même façon.
 
 ### 6.7 Ce qui reste à l'exploitant
 
