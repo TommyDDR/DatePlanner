@@ -12,6 +12,7 @@ import { getSessionUser } from '@/server/auth/session';
 import { getOwnResponse, getPollByPublicId, getPollSynthesis, listResponsesForOwner } from '@/server/polls/read';
 import { AvailabilityList } from './_sections/availability-list';
 import { OwnerPanel } from './_sections/owner-panel';
+import { ParticipantCount } from './_sections/participant-count';
 import { ResponseForm } from './_sections/response-form';
 
 type Params = Promise<{ publicId: string }>;
@@ -73,6 +74,7 @@ export default async function PollPage({ params, searchParams }: { params: Param
         {poll.description ? (
           <p className="max-w-2xl whitespace-pre-line text-[var(--color-text-muted)]">{poll.description}</p>
         ) : null}
+        <ParticipantCount count={poll.respondents} />
       </header>
 
       {poll.status === 'CLOSED' ? (

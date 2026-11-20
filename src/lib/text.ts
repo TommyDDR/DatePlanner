@@ -12,3 +12,12 @@ export function enumerate(items: readonly string[]): string {
 export function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
   return `${count} ${count > 1 ? pluralForm : singular}`;
 }
+
+/**
+ * Le compteur de participants d'un sondage (spécification 002, FR-004) :
+ * « 1 participant », « 3 participants » ; à zéro, le même message que
+ * « Qui est disponible ? ». Le nombre reste exact, sans abréviation.
+ */
+export function participantCountLabel(count: number): string {
+  return count === 0 ? 'Personne n’a encore répondu' : plural(count, 'participant');
+}

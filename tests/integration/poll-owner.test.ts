@@ -11,7 +11,7 @@ import {
   setRetainedDaysAction,
   updatePollDetailsAction,
 } from '@/app/s/[publicId]/actions';
-import { listOwnerPolls } from '@/server/polls/read';
+import { getPollByPublicId, listOwnerPolls } from '@/server/polls/read';
 import { testCookies, TestRedirect } from '../setup';
 import { resetDatabase } from '../helpers/db';
 import {
@@ -260,6 +260,21 @@ describe('réponses et suppression', () => {
       done: true,
     });
     expect(await prisma.response.count()).toBe(0);
+  });
+
+  it('fait baisser le nombre de participants ; clore puis rouvrir ne le change pas (spécification 002)', async () => {
+    const { poll } = await ownPoll();
+    const response = await createResponse({ poll, days: [dayFromToday(3)], pseudonym: 'Léa' });
+    await createResponse({ poll, days: [dayFromToday(4)], pseudonym: 'Noé' });
+    expect((await getPollByPublicId(poll.publicId))?.respondents).toBe(2);
+
+    await deleteResponseAction(null, form({ publicId: poll.publicId, responseId: response.id }));
+    expect((await getPollByPublicId(poll.publicId))?.respondents).toBe(1);
+
+    await closePollAction(null, form({ publicId: poll.publicId }));
+    expect((await getPollByPublicId(poll.publicId))?.respondents).toBe(1);
+    await reopenPollAction(null, form({ publicId: poll.publicId }));
+    expect((await getPollByPublicId(poll.publicId))?.respondents).toBe(1);
   });
 
   it('supprime un sondage clos portant des votes et une date retenue, et annule ses emails en attente', async () => {

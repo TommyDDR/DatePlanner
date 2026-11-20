@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { randomBytes } from 'node:crypto';
-import { dayButton, dayCenter, dayFromToday, db, finger, resetDatabase } from './helpers';
+import { dayButton, dayCenter, dayFromToday, db, finger, resetDatabase, signInAs } from './helpers';
 
 /**
  * US3 - Voir qui est disponible, à jour pour tout le monde (scénarios 1 à 5,
@@ -21,6 +21,22 @@ async function createPoll(days: string[]): Promise<string> {
     },
   });
   return publicId;
+}
+
+/** Des réponses sans compte posées en base, une par pseudo, sur ce jour. */
+async function seedResponses(publicId: string, pseudonyms: string[], day: string) {
+  const poll = await db.poll.findUniqueOrThrow({ where: { publicId }, include: { days: true } });
+  const pollDay = poll.days.find((d) => d.day.toISOString().slice(0, 10) === day)!;
+  for (const pseudonym of pseudonyms) {
+    await db.response.create({
+      data: {
+        pollId: poll.id,
+        pseudonym,
+        deviceTokenHash: randomBytes(32).toString('hex'),
+        votes: { create: [{ pollDayId: pollDay.id }] },
+      },
+    });
+  }
 }
 
 test('une réponse apparaît chez les autres en moins de cinq secondes, sans recharger', async ({ browser }) => {
@@ -181,4 +197,78 @@ test('les jours vont du plus voté au moins voté, et les plus votés portent un
   await expect(badge(late)).toHaveAttribute('data-badge', 'leading');
   await expect(badge(early)).toHaveAttribute('data-badge', 'vote');
   await expect(dayButton(page, middle)).toHaveAccessibleName(/le plus choisi/);
+});
+
+test('le compteur de participants suit réponses et retraits chez les autres, sans recharger (spécification 002)', async ({
+  browser,
+}) => {
+  const day = dayFromToday(3);
+  const publicId = await createPoll([day, dayFromToday(4)]);
+  await seedResponses(publicId, ['Noé', 'Inès'], day);
+
+  const viewerContext = await browser.newContext();
+  const viewer = await viewerContext.newPage();
+  await viewer.goto(`/s/${publicId}`);
+  const counter = viewer.getByTestId('compteur-participants');
+  await expect(counter).toHaveText('2 participants');
+  // Le focus de l'observateur, posé sur un jour, ne doit pas bouger (FR-007).
+  await dayButton(viewer, dayFromToday(4)).focus();
+  await viewer.waitForTimeout(1500);
+
+  const respondentContext = await browser.newContext();
+  const respondent = await respondentContext.newPage();
+  await respondent.goto(`/s/${publicId}`);
+  await respondent.getByLabel('Votre nom ou un pseudo').fill('Léa');
+  await dayButton(respondent, day).click();
+  await respondent.getByRole('button', { name: 'Valider ma réponse' }).click();
+  await expect(respondent.getByText('Votre réponse est enregistrée')).toBeVisible();
+
+  // US2-1 : la nouvelle réponse arrive en moins de cinq secondes.
+  await expect(counter).toHaveText('3 participants', { timeout: 5000 });
+  await expect(counter).toHaveAttribute('role', 'status');
+  await expect(dayButton(viewer, dayFromToday(4))).toBeFocused();
+
+  // US2-3 : changer ses jours ne change pas le nombre.
+  await dayButton(respondent, dayFromToday(4)).click();
+  await respondent.getByRole('button', { name: 'Mettre à jour' }).click();
+  await expect(dayButton(viewer, dayFromToday(4))).toHaveAttribute('data-votes', '1', { timeout: 5000 });
+  await expect(counter).toHaveText('3 participants');
+
+  // US2-4 : retirer sa réponse fait baisser le nombre.
+  await respondent.getByRole('button', { name: 'Retirer ma réponse' }).click();
+  await expect(counter).toHaveText('2 participants', { timeout: 5000 });
+
+  await viewerContext.close();
+  await respondentContext.close();
+});
+
+test('le compteur baisse chez les autres quand le créateur supprime une réponse (spécification 002)', async ({
+  browser,
+  baseURL,
+}) => {
+  const day = dayFromToday(3);
+  const publicId = await createPoll([day]);
+  await seedResponses(publicId, ['Léa', 'Noé', 'Inès'], day);
+
+  const viewerContext = await browser.newContext();
+  const viewer = await viewerContext.newPage();
+  await viewer.goto(`/s/${publicId}`);
+  const counter = viewer.getByTestId('compteur-participants');
+  await expect(counter).toHaveText('3 participants');
+  await viewer.waitForTimeout(1500);
+
+  const owner = await db.poll.findUniqueOrThrow({ where: { publicId }, select: { ownerId: true } });
+  const ownerContext = await browser.newContext();
+  await signInAs(ownerContext, owner.ownerId, baseURL!);
+  const ownerPage = await ownerContext.newPage();
+  await ownerPage.goto(`/s/${publicId}`);
+  const panel = ownerPage.getByRole('region', { name: 'Gérer le sondage' });
+  await panel.getByRole('button', { name: 'Supprimer', exact: true }).first().click();
+  await panel.getByRole('button', { name: 'Supprimer la réponse' }).click();
+
+  // US2-2 : la suppression arrive en moins de cinq secondes.
+  await expect(counter).toHaveText('2 participants', { timeout: 5000 });
+
+  await viewerContext.close();
+  await ownerContext.close();
 });
