@@ -142,7 +142,7 @@ run_local_controls() {
   npm test
   # Un build de production refuse une adresse publique en clair : il reçoit
   # l'adresse réelle, comme dans la CI.
-  NEXT_PUBLIC_SITE_URL=https://dateplanner.laserit.fr npm run build
+  NEXT_PUBLIC_SITE_URL=https://dateplanner.fr npm run build
   npm run e2e
   npm run e2e:perf
   echo "$sha" >"$marker"
