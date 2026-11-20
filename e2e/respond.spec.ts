@@ -9,7 +9,9 @@ import { dayButton, dayCenter, dayFromToday, db, finger, resetDatabase, signUp }
 
 test.beforeEach(resetDatabase);
 
-async function createPoll(options: { requireAccount?: boolean; days?: string[] } = {}): Promise<string> {
+async function createPoll(
+  options: { requireAccount?: boolean; days?: string[]; status?: 'OPEN' | 'CLOSED' } = {},
+): Promise<string> {
   const owner = await db.user.create({ data: { email: `proprio-${Date.now()}@exemple.test`, displayName: 'Proprio' } });
   const publicId = randomBytes(16).toString('base64url');
   await db.poll.create({
@@ -18,12 +20,33 @@ async function createPoll(options: { requireAccount?: boolean; days?: string[] }
       ownerId: owner.id,
       title: 'Pique-nique',
       requireAccount: options.requireAccount ?? false,
+      status: options.status ?? 'OPEN',
       days: {
         create: (options.days ?? [dayFromToday(3), dayFromToday(5)]).map((day) => ({ day: new Date(`${day}T00:00:00Z`) })),
       },
     },
   });
   return publicId;
+}
+
+/** Des réponses sans compte posées en base, chacune sur ses jours. */
+async function seedResponses(publicId: string, responses: { pseudonym: string; days: string[] }[]) {
+  const poll = await db.poll.findUniqueOrThrow({ where: { publicId }, include: { days: true } });
+  for (const { pseudonym, days } of responses) {
+    const wanted = new Set(days);
+    await db.response.create({
+      data: {
+        pollId: poll.id,
+        pseudonym,
+        deviceTokenHash: randomBytes(32).toString('hex'),
+        votes: {
+          create: poll.days
+            .filter((pollDay) => wanted.has(pollDay.day.toISOString().slice(0, 10)))
+            .map((pollDay) => ({ pollDayId: pollDay.id })),
+        },
+      },
+    });
+  }
 }
 
 async function respond(page: Page, pseudonym: string | null, days: string[]) {
@@ -185,4 +208,74 @@ test('répondre sous son compte, puis retrouver sa réponse anonyme une fois dé
   await page.goto(`/s/${publicId}`);
   await expect(page.getByLabel('Votre nom ou un pseudo')).toHaveValue('Léa anonyme');
   await expect(page.locator(`input[name="days"][value="${dayFromToday(3)}"]`)).toHaveCount(1);
+});
+
+test('le compteur dit combien de personnes ont répondu, sans rien toucher (spécification 002)', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const publicId = await createPoll();
+  await page.goto(`/s/${publicId}`);
+  const counter = page.getByTestId('compteur-participants');
+
+  // US1-3 : aucune réponse.
+  await expect(counter).toBeInViewport();
+  await expect(counter).toHaveText('Personne n’a encore répondu');
+  await expect(counter).toHaveAttribute('role', 'status');
+
+  // US1-2 : une réponse, au singulier.
+  await respond(page, 'Léa', [dayFromToday(3)]);
+  await page.getByRole('button', { name: 'Valider ma réponse' }).click();
+  await expect(page.getByText('Votre réponse est enregistrée')).toBeVisible();
+  await expect(counter).toHaveText('1 participant');
+
+  // US1-1 et US1-4 : des personnes, pas des votes, même sur des jours tous différents.
+  await seedResponses(publicId, [
+    { pseudonym: 'Noé', days: [dayFromToday(5)] },
+    { pseudonym: 'Inès', days: [dayFromToday(3), dayFromToday(5)] },
+  ]);
+  // Une nouvelle visite, en haut de page : `reload` rendrait la position de défilement.
+  await page.goto(`/s/${publicId}`);
+  await expect(counter).toHaveText('3 participants');
+  await expect(counter).toBeInViewport();
+});
+
+test('le compteur reste visible sur un sondage clos ou réservé aux comptes (spécification 002)', async ({ page }) => {
+  // US1-5 : sondage clos.
+  const closed = await createPoll({ status: 'CLOSED' });
+  await seedResponses(closed, [
+    { pseudonym: 'Léa', days: [dayFromToday(3)] },
+    { pseudonym: 'Noé', days: [dayFromToday(5)] },
+  ]);
+  await page.goto(`/s/${closed}`);
+  await expect(page.getByTestId('compteur-participants')).toHaveText('2 participants');
+
+  // US1-6 : visiteur non connecté sur un sondage réservé aux comptes.
+  const restricted = await createPoll({ requireAccount: true });
+  await seedResponses(restricted, [{ pseudonym: 'Léa', days: [dayFromToday(3)] }]);
+  await page.goto(`/s/${restricted}`);
+  await expect(page.getByTestId('compteur-participants')).toHaveText('1 participant');
+});
+
+test('sur un petit téléphone, un grand nombre de participants tient sans défilement horizontal (spécification 002)', async ({
+  browser,
+}) => {
+  const publicId = await createPoll();
+  const poll = await db.poll.findUniqueOrThrow({ where: { publicId } });
+  // Le compteur compte des réponses : des réponses sans jour suffisent à la mesure.
+  await db.response.createMany({
+    data: Array.from({ length: 1234 }, (_, index) => ({
+      pollId: poll.id,
+      pseudonym: `Invité ${index}`,
+      deviceTokenHash: randomBytes(32).toString('hex'),
+    })),
+  });
+
+  for (const colorScheme of ['light', 'dark'] as const) {
+    const context = await browser.newContext({ viewport: { width: 320, height: 640 }, colorScheme });
+    const page = await context.newPage();
+    await page.goto(`/s/${publicId}`);
+    await expect(page.getByTestId('compteur-participants')).toHaveText('1234 participants');
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+    await context.close();
+  }
 });

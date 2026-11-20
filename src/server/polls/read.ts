@@ -30,6 +30,8 @@ export type PollView = {
   days: string[];
   /** Les dates retenues, `AAAA-MM-JJ`, triées ; seulement sur un sondage clos. */
   retainedDays: string[];
+  /** Nombre de réponses : même comptage que « Mes sondages » (spécification 002, FR-006). */
+  respondents: number;
 };
 
 /**
@@ -183,7 +185,10 @@ export async function getPollByPublicId(publicId: string): Promise<PollView | nu
   if (!isPublicId(publicId)) return null;
   const poll = await prisma.poll.findUnique({
     where: { publicId },
-    include: { days: { orderBy: { day: 'asc' }, select: { day: true, retained: { select: { pollDayId: true } } } } },
+    include: {
+      days: { orderBy: { day: 'asc' }, select: { day: true, retained: { select: { pollDayId: true } } } },
+      _count: { select: { responses: true } },
+    },
   });
   if (!poll) return null;
   return {
@@ -200,5 +205,6 @@ export async function getPollByPublicId(publicId: string): Promise<PollView | nu
     activityAt: poll.activityAt,
     days: poll.days.map((d) => dayFromDate(d.day)),
     retainedDays: poll.days.filter((d) => d.retained).map((d) => dayFromDate(d.day)),
+    respondents: poll._count.responses,
   };
 }

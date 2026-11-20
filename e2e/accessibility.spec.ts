@@ -99,6 +99,9 @@ test('chaque page passe axe, dans les deux thèmes', async ({ browser, baseURL }
       await visitorPage.goto(path);
       failures.push(...(await violations(visitorPage, `${scheme} ${path}`)));
     }
+    // Le compteur de participants est une région annoncée (spécification 002, FR-007).
+    await visitorPage.goto(`/s/${publicId}`);
+    await expect(visitorPage.getByRole('status').filter({ hasText: 'participant' })).toHaveText('1 participant');
     await visitor.close();
 
     const owner = await newContext(browser, scheme);

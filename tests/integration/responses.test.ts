@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { DEVICE, RATE_LIMITS, SESSION } from '@/config/limits';
 import { prisma } from '@/server/db/client';
 import { submitResponseAction, withdrawResponseAction } from '@/app/s/[publicId]/actions';
+import { getPollByPublicId, listOwnerPolls } from '@/server/polls/read';
 import { setTestHeaders, testCookies } from '../setup';
 import { resetDatabase } from '../helpers/db';
-import { createPoll, createSessionFor, createUser, dayFromToday } from '../helpers/factories';
+import { createPoll, createResponse, createSessionFor, createUser, dayFromToday } from '../helpers/factories';
 
 /** Répondre à un sondage (FR-013 à FR-019, FR-040, SC-004). */
 
@@ -178,5 +179,32 @@ describe('ce que le serveur refuse (FR-016, SC-004)', () => {
     testCookies.newBrowser();
     const refused = await submit({ publicId: poll.publicId, pseudonym: 'de trop', days: [dayFromToday(3)] });
     expect(refused?.error).toMatchObject({ code: 'RATE_LIMITED' });
+  });
+});
+
+describe('nombre de participants (spécification 002)', () => {
+  it('compte les réponses, avec ou sans compte, même à pseudo identique, comme « Mes sondages »', async () => {
+    const owner = await createUser({ displayName: 'Proprio' });
+    const poll = await createPoll({ owner });
+    expect((await getPollByPublicId(poll.publicId))?.respondents).toBe(0);
+
+    await createResponse({ poll, days: [dayFromToday(3)], user: await createUser({ displayName: 'Camille' }) });
+    await createResponse({ poll, days: [dayFromToday(4)], pseudonym: 'Léa' });
+    await createResponse({ poll, days: [dayFromToday(5)], pseudonym: 'Léa' });
+
+    const view = await getPollByPublicId(poll.publicId);
+    expect(view?.respondents).toBe(3);
+    const listed = (await listOwnerPolls(owner.id)).find((row) => row.publicId === poll.publicId);
+    expect(listed?.respondents).toBe(view?.respondents);
+  });
+
+  it('ne bouge pas quand on change ses jours, baisse quand on retire sa réponse', async () => {
+    const poll = await createPoll();
+    await submit({ publicId: poll.publicId, pseudonym: 'Léa', days: [dayFromToday(3)] });
+    await submit({ publicId: poll.publicId, pseudonym: 'Léa', days: [dayFromToday(4), dayFromToday(5)] });
+    expect((await getPollByPublicId(poll.publicId))?.respondents).toBe(1);
+
+    expect(await withdraw(poll.publicId)).toMatchObject({ done: true });
+    expect((await getPollByPublicId(poll.publicId))?.respondents).toBe(0);
   });
 });

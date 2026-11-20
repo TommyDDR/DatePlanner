@@ -14,6 +14,9 @@ dans `specs/001-date-poll/`.
   Google, gestion par le créateur, page d'accueil, thèmes), avec la page
   compte, les pages légales, la conservation automatique, les fichiers
   d'exploitation et la documentation.
+- **Fonctionnalité 002, compteur de participants** (décision 047) : la page
+  d'un sondage affiche sous son titre le nombre de réponses, pour tout
+  visiteur, à jour en direct (`specs/002-compteur-participants/`).
 - **Administration** (décision 042) : compte déclaré dans `ADMIN_EMAILS`,
   menu « Administration », liste des utilisateurs avec suppression d'un compte
   et de ses sondages, liste complète des sondages paginée, triée et filtrée.
@@ -74,6 +77,7 @@ src/
     poll-rules.ts          jours valides, réponse acceptable, retrait d'un jour
     poll-state.ts          clore, rouvrir, dates retenues
     availability.ts        synthèse : votes et votants par jour
+    text.ts                pluriels, énumérations, libellé du compteur de participants
     digest.ts              contenu du résumé au créateur
     date-picker.ts         grille, plages, semaines, clavier du calendrier
     paris-day.ts           jours `AAAA-MM-JJ`, « aujourd'hui » à Paris, minuit à Paris
@@ -90,7 +94,7 @@ src/
     ratelimit/             fenêtres glissantes en base
     maintenance/           passage de maintenance et conservation
   app/                     pages et routes (contracts/pages.md, contracts/http-api.md)
-    s/[publicId]/          page d'un sondage, ses actions, ses sections (réponse, synthèse, créateur)
+    s/[publicId]/          page d'un sondage, ses actions, ses sections (compteur, réponse, synthèse, créateur)
     admin/                 écrans « Utilisateurs » et « Tous les sondages », suppression d'un compte
     api/                   flux, maintenance, santé, retour Google, désactivation du résumé
   components/              calendrier, thème, formulaires, démonstration de l'accueil
@@ -139,6 +143,10 @@ Le serveur décide (constitution II) :
   `poll(id, status)` (`docs/decisions/039-plusieurs-dates-retenues.md`).
 - Le flux en direct ne transporte que `{ kind, at }` : la page se relit
   avec ses propres contrôles d'accès.
+- Le compteur de participants de la page d'un sondage (`PollView.respondents`),
+  « Mes sondages » et l'administration comptent la même chose : les lignes
+  `response` du sondage (`_count.responses`). Le compteur suit le direct par
+  la relecture de page, jamais par une donnée ajoutée au flux.
 
 Données (constitution IV) :
 
@@ -252,6 +260,19 @@ Chaque exigence de `specs/001-date-poll/spec.md` et le fichier qui la vérifie.
 | FR-046 | administrateur déclaré et prouvé, liste des utilisateurs | `tests/unit/admin.test.ts`, `tests/integration/admin.test.ts`, `e2e/admin.spec.ts` |
 | FR-047 | suppression d'un compte par l'administrateur | `tests/integration/admin.test.ts`, `e2e/admin.spec.ts` |
 | FR-048 | tous les sondages : pages, tri, filtres | `tests/unit/admin.test.ts`, `tests/unit/paris-day.test.ts`, `tests/integration/admin.test.ts`, `e2e/admin.spec.ts` |
+
+Fonctionnalité 002 (`specs/002-compteur-participants/spec.md`) :
+
+| FR | Objet | Tests |
+|---|---|---|
+| 002 FR-001 | compteur visible sans interaction | `e2e/respond.spec.ts` |
+| 002 FR-002 | un participant = une réponse | `tests/integration/responses.test.ts`, `tests/integration/poll-owner.test.ts` |
+| 002 FR-003 | visible de tous, ouvert ou clos | `e2e/respond.spec.ts` |
+| 002 FR-004 | libellé accordé, message à zéro | `tests/unit/text.test.ts`, `e2e/respond.spec.ts` |
+| 002 FR-005 | direct sans rechargement | `e2e/live-updates.spec.ts` |
+| 002 FR-006 | même nombre que « Mes sondages » | `tests/integration/responses.test.ts` |
+| 002 FR-007 | annoncé, sans voler le focus | `e2e/live-updates.spec.ts`, `e2e/accessibility.spec.ts` |
+| 002 FR-008 | un entier, aucune donnée en plus | `tests/integration/responses.test.ts` |
 
 Critères de succès mesurés : SC-003 (`e2e/live-updates.spec.ts`), SC-004
 (`tests/integration/responses.test.ts`), SC-005
