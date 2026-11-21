@@ -34,14 +34,14 @@
 #
 # Variables lues dans l'environnement :
 #   SITE_HOST     conteneur du site (défaut : admin@192.168.1.53)
-#   PUBLIC_URL    adresse publique du site (défaut : https://dateplanner.laserit.fr)
+#   PUBLIC_URL    adresse publique du site (défaut : https://dateplanner.fr)
 #   PROXMOX_HOST  hôte Proxmox, pour le snapshot (défaut : root@192.168.1.10)
 #   CTID          conteneur LXC du site (défaut : 202)
 
 set -euo pipefail
 
 SITE_HOST="${SITE_HOST:-admin@192.168.1.53}"
-PUBLIC_URL="${PUBLIC_URL:-https://dateplanner.laserit.fr}"
+PUBLIC_URL="${PUBLIC_URL:-https://dateplanner.fr}"
 PROXMOX_HOST="${PROXMOX_HOST:-root@192.168.1.10}"
 CTID="${CTID:-202}"
 APP_DIR=/opt/dateplanner
